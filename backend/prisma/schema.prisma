@@ -1,0 +1,116 @@
+// Prisma schema file for the "Aether" project
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Define the missing enums
+enum Role {
+  ENGINEER
+  ADMIN
+  MANAGER
+}
+
+enum Severity {
+  SEV1
+  SEV2
+  SEV3
+}
+
+enum Status {
+  DETECTED
+  INVESTIGATING
+  MITIGATING
+  RESOLVED
+  POSTMORTEM
+}
+
+// Option 1: If "Team" is a static set of values, define it as an enum.
+// enum Team {
+//   OPERATIONS
+//   DEVELOPMENT
+//   SUPPORT
+// }
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+// Option 2: If "Team" is a dynamic entity with its own model, define it as follows:
+model Team {
+  id   String  @id @default(uuid())
+  name String  @unique
+  // Reverse relation to User (optional)
+  users User[]
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(ENGINEER)
+  // Use the team model relation; alternatively, uncomment enum above and use "team Team?" if Team is an enum.
+  team         Team?     @relation(fields: [teamId], references: [id])
+  teamId       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Inverse relations for incidents and messages.
+  incidentsCreated Incident[] @relation("UserIncidents")
+  messagesSent     Message[] @relation("UserMessages")
+}
+
+model Incident {
+  id          String     @id @default(uuid())
+  title       String
+  severity    Severity   @default(SEV2)
+  status      Status     @default(DETECTED)
+  createdBy   User       @relation("UserIncidents", fields: [createdById], references: [id])
+  createdById String
+  tasks       Task[]
+  messages    Message[]
+  timeline    Timeline[]
+  createdAt   DateTime   @default(now())
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  content    String
+  incident   Incident @relation(fields: [incidentId], references: [id])
+  incidentId String
+  sender     User     @relation("UserMessages", fields: [senderId], references: [id])
+  senderId   String
+  createdAt  DateTime @default(now())
+}
+
+// Define the "Task" model for incident tasks
+model Task {
+  id          String    @id @default(uuid())
+  description String
+  status      TaskStatus @default(OPEN)
+  completed   Boolean   @default(false)
+  // Relate to Incident if needed
+  incident    Incident? @relation(fields: [incidentId], references: [id])
+  incidentId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Define the "Timeline" model for incident timeline events
+model Timeline {
+  id          String    @id @default(uuid())
+  event       String
+  // Relate to Incident if needed
+  incident    Incident? @relation(fields: [incidentId], references: [id])
+  incidentId  String?
+  timestamp   DateTime  @default(now())
+}
