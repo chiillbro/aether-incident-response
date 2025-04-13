@@ -1,14 +1,72 @@
+# name: Aether CI
+
+# on:
+#   push:
+#     branches: [ main, develop ] # Adjust branches as needed
+#   pull_request:
+#     branches: [ main ]
+
+# jobs:
+#   lint-test-build:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v3
+
+#     - name: Set up Node.js
+#       uses: actions/setup-node@v3
+#       with:
+#         node-version: '18'
+#         cache: 'npm' # Cache dependencies
+
+#     - name: Install Backend Dependencies
+#       run: cd backend && npm ci # Use ci for deterministic installs
+
+#     - name: Lint Backend
+#       run: cd backend && npm run lint
+
+#     - name: Generate Prisma Client # Needed for build/test
+#       run: cd backend && npx prisma generate
+#       env:
+#         # Provide dummy DB URL for generate step, doesn't need connection
+#         DATABASE_URL: "postgresql://ci_user:ci_password@localhost:5432/ci_db?schema=public"
+
+#     - name: Test Backend
+#       run: cd backend && npm run test
+#       env:
+#         JWT_SECRET: test-secret # Provide dummy secrets for tests
+#         DATABASE_URL: "postgresql://ci_user:ci_password@localhost:5432/ci_db?schema=public"
+#         # Add other necessary env vars for tests
+
+#     - name: Build Backend
+#       run: cd backend && npm run build
+
+#     - name: Install Frontend Dependencies
+#       run: cd frontend && npm ci
+
+#     - name: Lint Frontend
+#       run: cd frontend && npm run lint
+
+#     # Add frontend tests here when available
+#     # - name: Test Frontend
+#     #   run: cd frontend && npm run test
+
+#     - name: Build Frontend
+#       run: cd frontend && npm run build
+
 name: Aether CI
 
 on:
   push:
-    branches: [ main, develop ] # Adjust branches as needed
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
 
 jobs:
   lint-test-build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: ['backend', 'frontend']
     steps:
     - uses: actions/checkout@v3
 
@@ -16,39 +74,30 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm' # Cache dependencies
+        cache: 'npm'
+        cache-dependency-path: ${{ matrix.project }}/package-lock.json
 
-    - name: Install Backend Dependencies
-      run: cd backend && npm ci # Use ci for deterministic installs
+    - name: Install Dependencies
+      run: |
+        cd ${{ matrix.project }}
+        npm ci
 
-    - name: Lint Backend
-      run: cd backend && npm run lint
+    - name: Lint
+      run: |
+        cd ${{ matrix.project }}
+        npm run lint
 
-    - name: Generate Prisma Client # Needed for build/test
-      run: cd backend && npx prisma generate
+    - name: Build
+      run: |
+        cd ${{ matrix.project }}
+        npm run build
+
+    - name: Backend-specific steps
+      if: matrix.project == 'backend'
+      run: |
+        cd backend
+        npx prisma generate
+        npm run test
       env:
-        # Provide dummy DB URL for generate step, doesn't need connection
+        JWT_SECRET: test-secret
         DATABASE_URL: "postgresql://ci_user:ci_password@localhost:5432/ci_db?schema=public"
-
-    - name: Test Backend
-      run: cd backend && npm run test
-      env:
-        JWT_SECRET: test-secret # Provide dummy secrets for tests
-        DATABASE_URL: "postgresql://ci_user:ci_password@localhost:5432/ci_db?schema=public"
-        # Add other necessary env vars for tests
-
-    - name: Build Backend
-      run: cd backend && npm run build
-
-    - name: Install Frontend Dependencies
-      run: cd frontend && npm ci
-
-    - name: Lint Frontend
-      run: cd frontend && npm run lint
-
-    # Add frontend tests here when available
-    # - name: Test Frontend
-    #   run: cd frontend && npm run test
-
-    - name: Build Frontend
-      run: cd frontend && npm run build
