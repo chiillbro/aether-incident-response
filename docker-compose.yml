@@ -1,0 +1,82 @@
+# version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    container_name: aether_postgres_dev
+    environment:
+      POSTGRES_USER: user # Same as in DATABASE_URL
+      POSTGRES_PASSWORD: password # Same as in DATABASE_URL
+      POSTGRES_DB: aether_dev # Same as in DATABASE_URL
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aether_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d aether_dev"]
+      interval: 5s
+      timeout: 5s 
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aether_redis_dev
+    ports:
+      - "6379:6379"
+    networks:
+      - aether_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  backend:
+    build: ./backend # Points to the directory with backend Dockerfile
+    container_name: aether_backend_dev
+    # command: npm run start:dev # Command to run inside the container
+    command: sh -c "echo 'Waiting for DB Migration...' && npx prisma migrate deploy && echo 'DB Migration Completed.' && echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
+    # environment:
+    # - DATABASE_URL=postgresql://user:password@postgres:5432/aether_dev?schema=public
+    ports:
+      - "3001:3000" # Expose NestJS default port 3000 as 3001 locally
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # - postgres
+      # - redis
+    volumes:
+      - ./backend:/app # Mount local backend code into container
+      - /app/node_modules # Avoid overwriting container node_modules
+    env_file:
+      - ./backend/.env # Pass environment variables
+    networks:
+      - aether_network
+
+  frontend:
+    build: ./frontend
+    container_name: aether_frontend_dev
+    command: npm run dev # Command to run inside the container
+    ports:
+      - "3000:3000" # Expose Next.js default port 3000 locally
+    depends_on:
+      - backend # Depends on backend being available (for API calls)
+    volumes:
+      - ./frontend:/app # Mount local frontend code into container
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - ./frontend/.env.local # Pass environment variables
+    networks:
+      - aether_network
+
+volumes:
+  postgres_data:
+
+networks:
+  aether_network:
+    name: aether_network
+    driver: bridge
