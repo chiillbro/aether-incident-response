@@ -4,6 +4,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { validationSchema } from './config/env.validation'; // Import the schema
 import { PrismaModule } from 'prisma/prisma.module';
+import { IncidentsModule } from './incidents/incidents.module';
+import { MessagesModule } from './messages/messages.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { PrismaModule } from 'prisma/prisma.module';
     PrismaModule, // PrismaModule needs ConfigModule if it injects ConfigService
     AuthModule,
     UsersModule,
+    IncidentsModule,
+    MessagesModule,
+    EventsModule,
     // Add other modules (Incidents, Messages, etc.) later
   ],
   controllers: [], // Root controllers if any
