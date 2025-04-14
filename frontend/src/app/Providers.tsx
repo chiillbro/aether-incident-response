@@ -1,6 +1,9 @@
 // frontend/src/app/providers.tsx
 'use client'; // This must be a Client Component
 
+import { Toaster } from '@/components/ui/sonner';
+import { queryClient } from '@/lib/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
 import { ReactNode } from 'react';
 // Import React Query Provider if you set it up separately
@@ -16,10 +19,11 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    // <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
       <SessionProvider>
         {/* SessionProvider requires session prop if you pre-fetch session on server */}
         {children}
+        <Toaster />
       </SessionProvider>
     // </QueryClientProvider>
   );

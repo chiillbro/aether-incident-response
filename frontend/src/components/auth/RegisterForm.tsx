@@ -3,7 +3,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { registerSchema, RegisterInput } from '@/components/lib/validations/auth';
+import { registerSchema, RegisterInput } from '@/lib/validations/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import axios from 'axios'; // Use standard axios

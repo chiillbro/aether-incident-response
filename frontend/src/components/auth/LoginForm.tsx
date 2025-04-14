@@ -3,7 +3,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema, LoginInput } from '@/components/lib/validations/auth';
+import { loginSchema, LoginInput } from '@/lib/validations/auth';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation'; // Use App Router's useRouter
 import { useEffect, useState } from 'react';
