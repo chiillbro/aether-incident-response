@@ -50,6 +50,9 @@ model Team {
   name String  @unique
   // Reverse relation to User (optional)
   users User[]
+
+  // Related to Incidents owned by the Team
+  incidents Incident[] @relation("TeamIncidents")
 }
 
 model User {
@@ -59,58 +62,78 @@ model User {
   name         String
   role         Role      @default(ENGINEER)
   // Use the team model relation; alternatively, uncomment enum above and use "team Team?" if Team is an enum.
+  teamId       String?   // Foreign key for Team relationship
   team         Team?     @relation(fields: [teamId], references: [id])
-  teamId       String?
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   // Inverse relations for incidents and messages.
   incidentsCreated Incident[] @relation("UserIncidents")
   messagesSent     Message[] @relation("UserMessages")
+
+  // User assigned to these tasks (Add later in Phase 2)
+  // assignedTasks Task[] @relation("TaskAssignee")
 }
 
 model Incident {
   id          String     @id @default(uuid())
   title       String
+  description String?    // Optional
   severity    Severity   @default(SEV2)
   status      Status     @default(DETECTED)
+
   createdBy   User       @relation("UserIncidents", fields: [createdById], references: [id])
   createdById String
-  tasks       Task[]
+
+  teamId      String?    // Foreign key for owning Team (Optional for now?)
+  team        Team?      @relation("TeamIncidents", fields: [teamId], references: [id])
+
+  // tasks       Task[]    // Add later in Phase 2
   messages    Message[]
-  timeline    Timeline[]
+
+  // timeline    Timeline[]
   createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Message {
   id         String   @id @default(uuid())
-  content    String
-  incident   Incident @relation(fields: [incidentId], references: [id])
+  content    String   @db.Text // use Text for potentially longer messages
+
   incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  senderId   String   // Foreign key for sender User
   sender     User     @relation("UserMessages", fields: [senderId], references: [id])
-  senderId   String
+
   createdAt  DateTime @default(now())
+
+  @@index([incidentId, createdAt])  // Index for fetching messages sorted by time for an incident
 }
 
 // Define the "Task" model for incident tasks
-model Task {
-  id          String    @id @default(uuid())
-  description String
-  status      TaskStatus @default(OPEN)
-  completed   Boolean   @default(false)
-  // Relate to Incident if needed
-  incident    Incident? @relation(fields: [incidentId], references: [id])
-  incidentId  String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
+// model Task {
+//   id          String    @id @default(uuid())
+//   description String
+//   status      TaskStatus @default(OPEN)
+//   completed   Boolean   @default(false)
+//   // Relate to Incident if needed
+//   incident    Incident? @relation(fields: [incidentId], references: [id])
+//   incidentId  String?
+//   createdAt   DateTime  @default(now())
+//   updatedAt   DateTime  @updatedAt
+// }
 
 // Define the "Timeline" model for incident timeline events
-model Timeline {
-  id          String    @id @default(uuid())
-  event       String
-  // Relate to Incident if needed
-  incident    Incident? @relation(fields: [incidentId], references: [id])
-  incidentId  String?
-  timestamp   DateTime  @default(now())
-}
+// model Timeline {
+//   id          String    @id @default(uuid())
+//   event       String
+//   // Relate to Incident if needed
+//   incident    Incident? @relation(fields: [incidentId], references: [id])
+//   incidentId  String?
+//   timestamp   DateTime  @default(now())
+// }
