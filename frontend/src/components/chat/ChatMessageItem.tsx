@@ -34,6 +34,7 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
            )}
           <p>{message.content}</p>
         </div>
+         {/* Add to message bubble */}
         {/* <div className="flex items-center gap-1 mt-1">
   {message.status === 'sent' && <Check className="h-3 w-3 text-muted-foreground" />}
   {message.status === 'delivered' && <CheckCheck className="h-3 w-3 text-muted-foreground" />}

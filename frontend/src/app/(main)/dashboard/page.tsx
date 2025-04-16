@@ -35,7 +35,7 @@
 'use client'; // Mark as Client Component because we use hooks
 
 import { useState } from 'react';
-import { useIncidents } from '@/hooks/api/useIncidents';
+import { useIncidents } from '@/hooks/api/incidents/useIncidents';
 import { IncidentList } from '@/components/incidents/IncidentList';
 import { Button } from '@/components/ui/button';
 import { CreateIncidentDialog } from '@/components/incidents/CreateIncidentDialog';

@@ -6,13 +6,18 @@ import { Send } from 'lucide-react';
 interface ChatInputProps {
   onSendMessage: (content: string) => void;
   isLoading: boolean;
+  onTyping: () => void;  // Add this prop
 }
 
-export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
+export function ChatInput({ onSendMessage, isLoading, onTyping }: ChatInputProps) {
   const [inputValue, setInputValue] = useState('');
 
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(event.target.value);
+    const value = event.target.value;
+    setInputValue(value);
+    if (value) {
+      onTyping();
+    }
   };
 
   const handleSend = () => {
