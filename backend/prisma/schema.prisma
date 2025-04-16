@@ -10,25 +10,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Define the missing enums
+// --- Enums ---
+// Define controlled vocabularies for specific fields
+
+// User roles within the application
 enum Role {
-  ENGINEER
-  ADMIN
-  MANAGER
+  ADMIN // Full access
+  ENGINEER // Standard user, can participate in incidents
+  // MANAGER // Consider if needed later, keep it simple for now (ADMIN covers management)
 }
 
-enum Severity {
-  SEV1
-  SEV2
-  SEV3
+// Standard incident severity levels
+enum IncidentSeverity {
+  SEV1 // Highest impact, critical issue
+  SEV2 // Moderate impact
+  SEV3 // Low impact
 }
 
-enum Status {
-  DETECTED
-  INVESTIGATING
-  MITIGATING
-  RESOLVED
-  POSTMORTEM
+// Lifecycle status of an incident
+enum IncidentStatus {
+  DETECTED      // Initial state when created
+  INVESTIGATING // Actively being looked into
+  MITIGATING    // Fix is being applied
+  RESOLVED      // Issue confirmed fixed
+  POSTMORTEM    // Post-incident review phase
 }
 
 // Option 1: If "Team" is a static set of values, define it as an enum.
@@ -38,95 +43,151 @@ enum Status {
 //   SUPPORT
 // }
 
+// Status of an incident task
 enum TaskStatus {
-  OPEN
-  IN_PROGRESS
-  COMPLETED
+  TODO        // Task created, not started
+  IN_PROGRESS // Task is being worked on
+  DONE        // Task completed
 }
+
+
+// --- Models ---
+// Define the structure of the application data
 
 // Option 2: If "Team" is a dynamic entity with its own model, define it as follows:
 model Team {
   id   String  @id @default(uuid())
-  name String  @unique
-  // Reverse relation to User (optional)
-  users User[]
+  name String  @unique  // Team names must be unique
+  
+  // Relation: Users belonging to this team
+  users User[] @relation("TeamMembership")
 
-  // Related to Incidents owned by the Team
+  // Relation: Incidents owned by this team
   incidents Incident[] @relation("TeamIncidents")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("teams") // Explicitly map to 'teams' table in the database
 }
 
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
-  passwordHash String
+  passwordHash String    // store hashed passwords only
   name         String
+
+  // User's primary role (simplest RBAC approach)
   role         Role      @default(ENGINEER)
-  // Use the team model relation; alternatively, uncomment enum above and use "team Team?" if Team is an enum.
+
+
+  // Relation: The team this user belongs to (Optional for now, but recommended to assign users to teams)
   teamId       String?   // Foreign key for Team relationship
-  team         Team?     @relation(fields: [teamId], references: [id])
+  team         Team?     @relation("TeamMembership", fields: [teamId], references: [id], onDelete: SetNull) // If team deleted, set user's teamId to null
+
+
+  // Relation: Incidents reported by this user
+  reportedIncidents Incident[] @relation("IncidentReporter")
+
+  // Relation: Messages sent by this user
+  sentMessages Message[] @relation("MessageSender")
+
+  // Relation: Tasks assigned to this user (phase 2)
+  assignedTasks Task[] @relation("TaskAssignee")
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   // Inverse relations for incidents and messages.
-  incidentsCreated Incident[] @relation("UserIncidents")
-  messagesSent     Message[] @relation("UserMessages")
+  // incidentsCreated Incident[] @relation("UserIncidents")
+  // messagesSent     Message[] @relation("UserMessages")
 
-  // User assigned to these tasks (Add later in Phase 2)
-  // assignedTasks Task[] @relation("TaskAssignee")
+  @@index([email])
+  @@map("users") // Explicitly map to 'users' table
 }
 
 model Incident {
   id          String     @id @default(uuid())
   title       String
-  description String?    // Optional
-  severity    Severity   @default(SEV2)
-  status      Status     @default(DETECTED)
+  description String? @db.Text   // Use Text for potentially longer descriptions
+  severity    IncidentSeverity
+  status      IncidentStatus     @default(DETECTED)
 
-  createdBy   User       @relation("UserIncidents", fields: [createdById], references: [id])
-  createdById String
+  // Relation: User who reported the incident
+  reporterId  String
+  reported    User     @relation("IncidentReporter", fields: [reporterId], references: [id])
 
-  teamId      String?    // Foreign key for owning Team (Optional for now?)
-  team        Team?      @relation("TeamIncidents", fields: [teamId], references: [id])
+  // Remodeled in phase 2
+  // createdBy   User       @relation("UserIncidents", fields: [createdById], references: [id])
+  // createdById String
 
-  // tasks       Task[]    // Add later in Phase 2
+  // Relation: Team responsible for handling the incident (Making this MANDATORY)
+  teamId      String
+  team        Team      @relation("TeamIncidents", fields: [teamId], references: [id], onDelete: Restrict) // Prevent deleting a team if it has incidents
+
+  // Relation: Tasks associated with resolving this incident (Phase 2)
+  tasks       Task[]
+
+  // Relation: Chat Messages with the incident war room
   messages    Message[]
 
   // timeline    Timeline[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
+  // Indexes for common query patterns
   @@index([status])
+  @@index([severity])
+  @@index([teamId])
+  @@index([reporterId])
   @@index([createdAt])
+  @@map("incidents") // Explicitly map to 'incidents' table
 }
 
 model Message {
   id         String   @id @default(uuid())
   content    String   @db.Text // use Text for potentially longer messages
 
+  // Relation: Incident this message belongs to
   incidentId String
-  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade) // If incident deleted, delete message as well
 
+  // Relation: The User who sent this message
   senderId   String   // Foreign key for sender User
-  sender     User     @relation("UserMessages", fields: [senderId], references: [id])
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id]) // Sender info is mandatory
 
   createdAt  DateTime @default(now())
 
-  @@index([incidentId, createdAt])  // Index for fetching messages sorted by time for an incident
+  // Index for efficiently fetching messages for a specific incident, sorted by time
+  @@index([incidentId, createdAt])
+  @@map("messages") // Explicitly map to 'messages' table
 }
 
-// Define the "Task" model for incident tasks
-// model Task {
-//   id          String    @id @default(uuid())
-//   description String
-//   status      TaskStatus @default(OPEN)
-//   completed   Boolean   @default(false)
-//   // Relate to Incident if needed
-//   incident    Incident? @relation(fields: [incidentId], references: [id])
-//   incidentId  String?
-//   createdAt   DateTime  @default(now())
-//   updatedAt   DateTime  @updatedAt
-// }
+// Added for Phase 2: Model for Tasks related to Incidents
+model Task {
+  id          String    @id @default(uuid())
+  description String
+  status      TaskStatus @default(TODO) // Default to TODO when created
+  // completed   Boolean   @default(false)
+
+
+  // Relation: The Incident this task belongs to
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade) // If incident deleted, delete its tasks as well
+
+  // Relation: The User assigned to this task (Optional)
+  assigneeId  String?
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull) // If assigned user deleted, set assigneeId to null
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Indexes for common query patterns
+  @@index([incidentId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("tasks") // Explicitly map to 'tasks' table
+}
 
 // Define the "Timeline" model for incident timeline events
 // model Timeline {
