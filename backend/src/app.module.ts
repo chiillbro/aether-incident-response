@@ -7,6 +7,11 @@ import { PrismaModule } from 'prisma/prisma.module';
 import { IncidentsModule } from './incidents/incidents.module';
 import { MessagesModule } from './messages/messages.module';
 import { EventsModule } from './events/events.module';
+import { TeamsModule } from './teams/teams.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { TasksModule } from './tasks/tasks.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -26,9 +31,12 @@ import { EventsModule } from './events/events.module';
     IncidentsModule,
     MessagesModule,
     EventsModule,
+    TeamsModule,
+    TasksModule,
+    NotificationsModule,
     // Add other modules (Incidents, Messages, etc.) later
   ],
-  controllers: [], // Root controllers if any
-  providers: [],   // Root providers if any
+  controllers: [AppController], // Root controllers if any
+  providers: [AppService],   // Root providers if any
 })
 export class AppModule {}

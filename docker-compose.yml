@@ -36,7 +36,8 @@ services:
     build: ./backend # Points to the directory with backend Dockerfile
     container_name: aether_backend_dev
     # command: npm run start:dev # Command to run inside the container
-    command: sh -c "echo 'Waiting for DB Migration...' && npx prisma migrate deploy && echo 'DB Migration Completed.' && echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
+    # command: sh -c "echo 'Waiting for DB Migration...' && npx prisma migrate deploy && echo 'DB Migration Completed.' && echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
+    command: sh -c "echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
     # environment:
     # - DATABASE_URL=postgresql://user:password@postgres:5432/aether_dev?schema=public
     ports:

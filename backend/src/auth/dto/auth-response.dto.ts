@@ -1,5 +1,5 @@
 // Structure must match exactly what the frontend `authorize` callback expects
-// import { User as PrismaUser } from 'generated/prisma'; // Rename to avoid conflict
+import { Role } from "@prisma/client"; // Import Role enum if needed for typing
 
 // Define the shape of the user object within the response
 // Exclude sensitive fields like passwordHash
@@ -7,8 +7,8 @@ class UserResponseDto {
     id: string;
     name: string;
     email: string;
-    role: string; // Use string representation of enum
-    teamId?: string | null; // Make optional or null based on your schema/logic
+    role: Role; // Use Role enum type for clarity internally
+    teamId?: string | null; // ADDED: Include teamId (optional)
 }
 
 export class AuthResponseDto {

@@ -1,5 +1,5 @@
-import { Severity, Status } from "@prisma/client";
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { IncidentSeverity } from "@prisma/client";
+import { IsEmail, IsEmpty, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 
 export class CreateIncidentDto {
   @IsString()
@@ -11,18 +11,16 @@ export class CreateIncidentDto {
   @IsOptional()
   description?: string;
 
-  @IsEnum(Severity)
-  @IsOptional()
-  severity?: Severity;
+  @IsEnum(IncidentSeverity)
+  @IsNotEmpty()
+  severity: IncidentSeverity;
 
-  // Status will default to DETECTED in schema
-  // @IsEnum(Status)
-  // @IsOptional()
-  // status?: Status;
+  // Status will default to DETECTED in schema, typically not set on creation.
+  // Remove status property from Create DTO to rely on schema default.
 
-  // teamId might be assigned based on user or context later 
-  // @IsString()
-  // @IsOptional()
-  // teamId?: string;
+  @IsString()
+  @IsNotEmpty()
+  @IsUUID()
+  teamId: string;
 
 }

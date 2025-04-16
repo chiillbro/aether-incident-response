@@ -15,7 +15,7 @@ import { Logger, UseGuards, UnauthorizedException } from '@nestjs/common'; // Im
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt'; // For validating token
 import { UsersService } from '../users/users.service'; // To fetch user details
-import { User as PrismaUser } from '@prisma/client';
+import { Incident, User as PrismaUser, Role, Task, IncidentStatus } from '@prisma/client';
 import { CreateMessageDto } from '../messages/dto/create-message.dto';
 
 type SafeUser = Omit<PrismaUser, 'passwordHash'>; // Exclude passwordHash
@@ -33,6 +33,14 @@ interface SendMessagePayload {
     incidentId: string;
     content: string;
 }
+
+interface TypingInfo {
+   timeoutId: NodeJS.Timeout;
+    incidentId: string;
+
+}
+
+// interface TypingPayload { incidentId: string; isTyping: boolean; } // Refined Typing payload
 
 @WebSocketGateway({
    cors: { // Configure CORS for WebSocket connections
@@ -98,6 +106,8 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
    }
 
    handleDisconnect(client: AuthenticatedSocket) {
+      // Clear typing status on disconnect
+      this.clearTypingStatus(client);
       this.logger.log(`Client disconnected: ${client.id} (${client.user?.email || 'Unauthenticated'})`);
       // TODO: Handle cleanup if needed (e.g., leave all rooms)
    }
@@ -155,7 +165,11 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       if (!client.user) throw new WsException('Client not authenticated.');
       if (!payload || !payload.incidentId) throw new WsException('Missing incidentId in payload.');
 
+
       const roomName = `incident-${payload.incidentId}`;
+
+      // Clear typing status on leave room
+      this.clearTypingStatus(client, payload.incidentId);
       this.logger.log(`Client ${client.user.email} leaving room: ${roomName}`);
       client.leave(roomName);
 
@@ -177,6 +191,8 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
         throw new WsException('Message content cannot be empty.');
       }
 
+      // Stop typing indicator when message is sent
+      this.clearTypingStatus(client, payload.incidentId);
 
       this.logger.log(`Message from ${client.user.email} for incident ${payload.incidentId}: ${payload.content}`);
 
@@ -217,4 +233,199 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
          // throw new WsException(`Failed to send message: ${error.message}`);
       }
    }
+
+   // Add to EventsGateway
+private typingUsers = new Map<string, TypingInfo>();
+
+// @SubscribeMessage('typing')
+// handleTyping(
+//    @MessageBody() payload: { incidentId: string },
+//   @ConnectedSocket() client: AuthenticatedSocket,
+// ) {
+//   if (!client.user) return;
+  
+//   const roomName = `incident-${payload.incidentId}`;
+//   // Notify others in the room
+//   client.to(roomName).emit('userTyping', client.user.id);
+  
+//   // Refresh timeout
+//   if (this.typingUsers.has(client.user.id)) {
+//     clearTimeout(this.typingUsers.get(client.user.id));
+//   }
+//   this.typingUsers.set(client.user.id, 
+//     setTimeout(() => this.handleStopTyping(client, payload.incidentId), 2000)
+//   );
+// }
+
+
+@SubscribeMessage('typing')
+handleTyping(
+   @MessageBody() payload: { incidentId: string },
+   @ConnectedSocket() client: AuthenticatedSocket,
+): void {
+   if (!client.user) return; // Ignore if not authenticated
+
+   const roomName = `incident-${payload.incidentId}`;
+   const userId = client.user.id;
+   const currentTypingInfo = this.typingUsers.get(userId);
+
+   // Clear existing timeout if user types again quickly
+   if (currentTypingInfo) {
+       clearTimeout(currentTypingInfo.timeoutId);
+   } else {
+       // Only emit userTyping if they weren't previously marked as typing
+      // (This simple logic assumes typing in one incident stops typing in another)
+         // A more complex implementation could track typing per incident per user.
+      client.to(roomName).emit('userTyping', { userId: userId, userName: client.user.name });
+      this.logger.debug(`${client.user.name} started typing in ${roomName}`);
+   }
+
+   // Set a new timeout
+   const timeoutId = setTimeout(() => {
+       this.handleStopTypingOnTimeout(userId, payload.incidentId); // Call stop typing logic
+   }, 3000); // User stops typing after 3 seconds of inactivity
+
+   this.typingUsers.set(userId, { timeoutId, incidentId: payload.incidentId });
 }
+
+// This can be called internally by the timeout or potentially by a 'stopTyping' message
+private handleStopTypingOnTimeout(userId: string, incidentId: string): void {
+   const user = this.typingUsers.get(userId);
+
+   if (user && user.incidentId === incidentId) {
+      const roomName = `incident-${incidentId}`;
+      // Use the user details from the socket if available (might not be if disconnected)
+      // It's safer to just emit the ID here. The frontend can map ID to name.
+      this.server.to(roomName).emit('userStoppedTyping', { userId: userId }); // Emit only ID
+      this.typingUsers.delete(userId); // Remove the user from typing map
+      this.logger.debug(`User ID ${userId} stopped typing in ${roomName} (timeout).`);
+  }
+   // If user.incidentId doesn't match, it means they started typing in another incident
+   // more recently, so this specific timeout should just be ignored.
+}
+
+
+// Helper to clear typing status (e.g., on disconnect, leave room, send message)
+private clearTypingStatus(client: AuthenticatedSocket, specificIncidentId?: string): void {
+    if (!client.user) return;
+    const userId = client.user.id;
+    const currentTypingInfo = this.typingUsers.get(userId);
+
+    if (currentTypingInfo) {
+        // If specificIncidentId is provided, only clear if it matches the one we stored
+        if (!specificIncidentId || currentTypingInfo.incidentId === specificIncidentId) {
+            clearTimeout(currentTypingInfo.timeoutId);
+            const roomName = `incident-${currentTypingInfo.incidentId}`;
+            // Notify others in that specific room
+            client.to(roomName).emit('userStoppedTyping', { userId: userId }); // Use client.to to avoid sending to self if clearing manually
+            this.typingUsers.delete(userId);
+            this.logger.debug(`${client.user.name} cleared typing status for incident ${currentTypingInfo.incidentId}.`);
+        }
+    }
+}
+
+
+// @SubscribeMessage('stopTyping')
+// handleStopTyping(
+//   @ConnectedSocket() client: AuthenticatedSocket,
+//   @MessageBody() incidentId: string
+// ) {
+//   if (!client.user) return;
+  
+//   const roomName = `incident-${incidentId}`;
+//   client.to(roomName).emit('userStoppedTyping', client.user.id);
+//   if (this.typingUsers.has(client.user.id)) {
+//     clearTimeout(this.typingUsers.get(client.user.id));
+//     this.typingUsers.delete(client.user.id);
+//   }
+// }
+
+ // --- Public Methods for Services to Call ---
+
+  // Called by IncidentsService when an incident is created
+  emitIncidentCreated(incident: Incident): void {
+   this.logger.log(`Emitting 'incidentCreated' for Incident ID: ${incident.id} to Team Room: team-${incident.teamId}`);
+   // Emit to a general 'dashboard' room? Or specific team room?
+   // Let's emit to a room for the assigned team.
+   const teamRoom = `team-${incident.teamId}`;
+   this.server.to(teamRoom).emit('incidentCreated', incident);
+   // Maybe also emit to all ADMINs?
+}
+
+// Called by IncidentsService when status updates
+emitIncidentStatusUpdated(incidentId: string, status: IncidentStatus, updatedByUser: SafeUser): void {
+   const roomName = `incident-${incidentId}`;
+   this.logger.log(`Emitting 'incidentStatusUpdated' to room ${roomName}`);
+   this.server.to(roomName).emit('incidentStatusUpdated', { incidentId, status, updatedBy: { id: updatedByUser.id, name: updatedByUser.name } });
+}
+
+// Called by TasksService when a task is created
+emitTaskCreated(incidentId: string, task: Task & { owner: string }): void {
+   const roomName = `incident-${incidentId}`;
+   this.logger.log(`Emitting 'taskCreated' to room ${roomName}`);
+   this.server.to(roomName).emit('taskCreated', task); // Send the full task object
+}
+
+// Called by TasksService when a task is updated (status, description, assignee)
+emitTaskUpdated(incidentId: string, task: Task): void {
+   const roomName = `incident-${incidentId}`;
+   this.logger.log(`Emitting 'taskUpdated' to room ${roomName}`);
+   this.server.to(roomName).emit('taskUpdated', task); // Send the full updated task object
+}
+
+// Called by TasksService when a task is deleted
+emitTaskDeleted(incidentId: string, payload: { taskId: string }): void {
+   const roomName = `incident-${incidentId}`;
+   this.logger.log(`Emitting 'taskDeleted' to room ${roomName}`);
+   this.server.to(roomName).emit('taskDeleted', payload);
+}
+
+// Called by IncidentsService if implementing incident deletion
+emitIncidentDeleted(incidentId: string): void {
+   const roomName = `incident-${incidentId}`;
+   this.logger.log(`Emitting 'incidentDeleted' globally and to room ${roomName}`);
+   // Emit to specific room first to maybe trigger UI cleanup
+   this.server.to(roomName).emit('incidentDeleted', { incidentId });
+   // Emit globally? Or to team rooms? Needs careful thought on UI impact.
+   // this.server.emit('incidentDeletedGlobal', { incidentId });
+
+   // Force clients out of the deleted incident's room
+   this.server.in(roomName).disconnectSockets(true);
+}
+
+// Handle joining team-specific rooms for global notifications
+@SubscribeMessage('joinTeamRoom')
+handleJoinTeamRoom(
+  @MessageBody() payload: { teamId: string },
+  @ConnectedSocket() client: AuthenticatedSocket,
+): void {
+  if (!client.user || !payload.teamId) throw new WsException('Authentication or teamId missing.');
+
+  // Authorization: Ensure user actually belongs to this team or is ADMIN
+  if (client.user.role !== Role.ADMIN && client.user.teamId !== payload.teamId) {
+      throw new WsException(`User not authorized to join team room ${payload.teamId}`);
+  }
+
+  const roomName = `team-${payload.teamId}`;
+  client.join(roomName);
+  this.logger.log(`Client ${client.user.email} joined team room: ${roomName}`);
+  client.emit('joinedTeamRoom', { teamId: payload.teamId });
+}
+
+@SubscribeMessage('leaveTeamRoom')
+handleLeaveTeamRoom(
+  @MessageBody() payload: { teamId: string },
+  @ConnectedSocket() client: AuthenticatedSocket,
+): void {
+   if (!client.user || !payload.teamId) throw new WsException('Authentication or teamId missing.');
+   // No auth check needed for leaving
+
+   const roomName = `team-${payload.teamId}`;
+   client.leave(roomName);
+   this.logger.log(`Client ${client.user.email} left team room: ${roomName}`);
+   client.emit('leftTeamRoom', { teamId: payload.teamId });
+}
+
+}
+
+

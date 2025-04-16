@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
@@ -7,7 +7,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 // import { Prisma } from '@prisma/client'; // Import Prisma namespace for error handling
 import { RegisterDto } from './dto/register.dto';
 // import { Prisma, User } from 'generated/prisma';
-import { User, Prisma } from '@prisma/client'; 
+import { User, Prisma, Role } from '@prisma/client'; 
 
 @Injectable()
 export class AuthService {
@@ -28,12 +28,9 @@ export class AuthService {
       console.log('User not found for email:', email);
       return null;
     }
-  
-    console.log('Stored hash:', user.passwordHash);
-    console.log('Password comparison result:', await bcrypt.compare(pass, user.passwordHash))
     
     if (user && await bcrypt.compare(pass, user.passwordHash)) {
-      // Passwords match
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { passwordHash, ...result } = user; // Exclude password hash from returned object
       return result;
     }
@@ -41,9 +38,15 @@ export class AuthService {
     return null;
   }
 
-  async login(user: Omit<User, 'passwordHash'>): Promise<AuthResponseDto> {
+  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+
+    const user = await this.usersService.findOneByEmail(loginDto.email); // Fetch the full user object
+
+    if (!user || !(await bcrypt.compare(loginDto.password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
     // Payload includes essential info for JWT strategy and potentially frontend use
-    const payload = { email: user.email, sub: user.id, role: user.role }; // 'sub' standard for subject (user ID)
+    const payload = { email: user.email, sub: user.id, role: user.role, teamId: user.teamId }; // 'sub' standard for subject (user ID)
     const accessToken = this.jwtService.sign(payload);
 
     // Prepare user object for response (ensure no passwordHash)
@@ -51,7 +54,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role.toString(), // Ensure role is string if enum
+        role: user.role,
         teamId: user.teamId,
     };
 
@@ -64,23 +67,28 @@ export class AuthService {
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const { name, email, password } = registerDto;
 
-    // 1. Check if user already exists
-    const existingUser = await this.usersService.findOneByEmail(email);
-    if (existingUser) {
-      throw new ConflictException('Email address is already registered');
+   // 1. Check if user already exists (using findOneByEmail which throws NotFound, so we need to catch it)
+   try {
+    await this.usersService.findOneByEmail(email);
+    // If found, throw conflict
+    throw new ConflictException('Email address is already registered');
+  } catch (error) {
+    // If it's NotFoundException, that's good, continue. Otherwise, rethrow unexpected errors.
+    if (!(error instanceof NotFoundException)) {
+        if (error instanceof ConflictException) throw error; // Rethrow conflict if already thrown
+         console.error('Unexpected error checking existing user:', error);
+         throw new InternalServerErrorException();
     }
+  }
 
     // 2. Hash the password
-    let hashedPassword;
-    try {
-      hashedPassword = await this.hashPassword(password);
-    } catch (error) {
-      console.error('Error hashing password:', error);
-      throw new InternalServerErrorException('Could not process registration');
-    }
-
-    console.log('Raw password:', password);
-    console.log('Hashed password:', hashedPassword);
+    const hashedPassword = await this.hashPassword(password);
+    // try {
+    //   hashedPassword = 
+    // } catch (error) {
+    //   console.error('Error hashing password:', error);
+    //   throw new InternalServerErrorException('Could not process registration');
+    // }
 
 
     // 3. Create the user in the database
@@ -90,7 +98,7 @@ export class AuthService {
         name,
         email,
         passwordHash: hashedPassword,
-        // Prisma handles default role ('ENGINEER' from schema)
+        // role defaults via Prisma schema
       });
     } catch (error) {
         // Catch potential Prisma unique constraint errors (though checked above, belt-and-suspenders)
@@ -103,8 +111,26 @@ export class AuthService {
       throw new InternalServerErrorException('Could not register user');
     }
 
-    // 4. Automatically log the user in (generate JWT)
-    const { passwordHash, ...userPayload } = newUser; // Exclude hash for login payload
-    return this.login(userPayload);
+    // // 4. Automatically log the user in (generate JWT)
+    // const { passwordHash, ...userPayload } = newUser; // Exclude hash for login payload
+    // return this.login(userPayload);
+
+    // 4. Generate JWT Payload & Token directly
+    const payload = { email: newUser.email, sub: newUser.id, role: newUser.role, teamId: newUser.teamId };
+    const accessToken = this.jwtService.sign(payload);
+
+    // 5. Prepare response DTO
+    const userResponse = {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        teamId: newUser.teamId,
+    };
+
+    return {
+        user: userResponse,
+        accessToken,
+    };
   }
 }
