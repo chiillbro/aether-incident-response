@@ -2,33 +2,34 @@ name: Deploy Aether to AWS ECS on Main Push
 
 on:
   push:
-    branches: [ main ] # Trigger deployment only on push to main
+    branches: [ main ]
 
 env:
   # Use secrets and variables for configuration
   AWS_REGION: ${{ secrets.AWS_REGION }}
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  BACKEND_ECR_REPOSITORY: ${{ secrets.BACKEND_ECR_REPOSITORY }}     # Should be 'aether/aether-backend'
-  FRONTEND_ECR_REPOSITORY: ${{ secrets.FRONTEND_ECR_REPOSITORY }}   # Should be 'aether/aether-frontend'
-  ECS_CLUSTER_NAME: ${{ secrets.ECS_CLUSTER_NAME }}                 # Should be 'aether-cluster'
-  BACKEND_ECS_SERVICE_NAME: ${{ secrets.BACKEND_ECS_SERVICE_NAME }} # Should be 'Aether-Backend-Prod'
-  FRONTEND_ECS_SERVICE_NAME: ${{ secrets.FRONTEND_ECS_SERVICE_NAME }} # Should be 'Aether-Frontend-Prod'
-  BACKEND_ECS_TASK_DEFINITION_FAMILY: ${{ secrets.BACKEND_ECS_TASK_DEFINITION_FAMILY }} # Should be 'aether-backend-task-def'
-  FRONTEND_ECS_TASK_DEFINITION_FAMILY: ${{ secrets.FRONTEND_ECS_TASK_DEFINITION_FAMILY }} # Should be 'aether-frontend-task-def'
-  BACKEND_CONTAINER_NAME: ${{ secrets.BACKEND_CONTAINER_NAME }}     # Should be 'aether-backend'
-  FRONTEND_CONTAINER_NAME: ${{ secrets.FRONTEND_CONTAINER_NAME }}   # Should be 'aether-frontend'
-  TARGET_PLATFORM: linux/amd64 # Target platform for Fargate
+  BACKEND_ECR_REPOSITORY: ${{ secrets.BACKEND_ECR_REPOSITORY }}
+  FRONTEND_ECR_REPOSITORY: ${{ secrets.FRONTEND_ECR_REPOSITORY }}
+  ECS_CLUSTER_NAME: ${{ secrets.ECS_CLUSTER_NAME }}
+  BACKEND_ECS_SERVICE_NAME: ${{ secrets.BACKEND_ECS_SERVICE_NAME }}
+  FRONTEND_ECS_SERVICE_NAME: ${{ secrets.FRONTEND_ECS_SERVICE_NAME }}
+  BACKEND_ECS_TASK_DEFINITION_FAMILY: ${{ secrets.BACKEND_ECS_TASK_DEFINITION_FAMILY }}
+  FRONTEND_ECS_TASK_DEFINITION_FAMILY: ${{ secrets.FRONTEND_ECS_TASK_DEFINITION_FAMILY }}
+  BACKEND_CONTAINER_NAME: ${{ secrets.BACKEND_CONTAINER_NAME }}
+  FRONTEND_CONTAINER_NAME: ${{ secrets.FRONTEND_CONTAINER_NAME }}
+  TARGET_PLATFORM: linux/amd64
 
 jobs:
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    permissions: # Added permissions for ECR login action
+    permissions:
       contents: read
-      packages: write # Needed for aws-actions/amazon-ecr-login@v2
+      packages: write
     outputs:
-      backend_image_uri: ${{ steps.build-push-backend.outputs.backend_image_uri }}
-      frontend_image_uri: ${{ steps.build-push-frontend.outputs.frontend_image_uri }}
+      # --- CHANGE: Output only the tag ---
+      image_tag: ${{ steps.set-image-tag.outputs.tag }}
+      # --- END CHANGE ---
 
     steps:
       - name: Checkout code
@@ -48,19 +49,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # --- ADDED STEP: Define image tag output ---
+      - name: Define Image Tag
+        id: set-image-tag
+        run: echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+      # --- END ADDED STEP ---
+
       - name: Build, tag, and push Backend image
-        id: build-push-backend
+        id: build-push-backend # Keep ID for potential future reference if needed
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          # Use tag from previous step
+          IMAGE_TAG: ${{ steps.set-image-tag.outputs.tag }}
         run: |
-          set -e # Exit on error
-          BACKEND_ECR_URI_VAR="$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY" # Use temp var
-          IMAGE_URI_WITH_TAG="$BACKEND_ECR_URI_VAR:$IMAGE_TAG" # Use temp var
-
+          set -e
+          BACKEND_ECR_URI_VAR="$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY"
+          IMAGE_URI_WITH_TAG="$BACKEND_ECR_URI_VAR:$IMAGE_TAG"
           echo "Building backend for $TARGET_PLATFORM: $IMAGE_URI_WITH_TAG"
-          # BACKEND_ECR_URI="$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY"
-          # echo "Building backend for $TARGET_PLATFORM: $BACKEND_ECR_URI:$IMAGE_TAG"
           docker buildx build \
             --platform ${{ env.TARGET_PLATFORM }} \
             -t "$IMAGE_URI_WITH_TAG" \
@@ -69,27 +74,20 @@ jobs:
             -f backend/Dockerfile \
             ./backend
           echo "Backend build and push complete."
-          echo "backend_image_uri=$IMAGE_URI_WITH_TAG" >> "$GITHUB_OUTPUT"
-          echo "Set output backend_image_uri to ${IMAGE_URI_WITH_TAG}" # Add debug echo
+          # --- REMOVED: Outputting full URI ---
 
       - name: Build, tag, and push Frontend image
-        id: build-push-frontend
+        id: build-push-frontend # Keep ID
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          # Use tag from previous step
+          IMAGE_TAG: ${{ steps.set-image-tag.outputs.tag }}
         run: |
-          set -e # Exit on error
-
-          FRONTEND_ECR_URI_VAR="$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY" # Use temp var
-          IMAGE_URI_WITH_TAG="$FRONTEND_ECR_URI_VAR:$IMAGE_TAG" # Use temp var
-          echo "Building frontend for $TARGET_PLATFORM: $IMAGE_URI_WITH_TAG"
-
-          # FRONTEND_ECR_URI="$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY"
-          ALB_DNS_NAME="${{ secrets.ALB_DNS_NAME }}" # Get ALB DNS from secrets
-          if [ -z "$ALB_DNS_NAME" ]; then
-            echo "Error: ALB_DNS_NAME secret is not set."
-            exit 1
-          fi
+          set -e
+          FRONTEND_ECR_URI_VAR="$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY"
+          IMAGE_URI_WITH_TAG="$FRONTEND_ECR_URI_VAR:$IMAGE_TAG"
+          ALB_DNS_NAME="${{ secrets.ALB_DNS_NAME }}"
+          if [ -z "$ALB_DNS_NAME" ]; then echo "Error: ALB_DNS_NAME secret is not set."; exit 1; fi
           API_BASE_URL="http://${ALB_DNS_NAME}/server-api"
           echo "Building frontend for $TARGET_PLATFORM: $IMAGE_URI_WITH_TAG with API URL: $API_BASE_URL"
           docker buildx build \
@@ -101,14 +99,13 @@ jobs:
             -f frontend/Dockerfile \
             ./frontend
           echo "Frontend build and push complete."
-          echo "frontend_image_uri=$IMAGE_URI_WITH_TAG" >> "$GITHUB_OUTPUT"
-          echo "Set output frontend_image_uri to ${IMAGE_URI_WITH_TAG}" # Add debug echo
+          # --- REMOVED: Outputting full URI ---
 
   deploy-backend:
     name: Deploy Backend to ECS
     runs-on: ubuntu-latest
-    needs: build-and-push # Depends on the build job completion
-    environment: production # Optional: Define a GitHub environment
+    needs: build-and-push
+    environment: production
 
     steps:
       - name: Configure AWS credentials
@@ -118,6 +115,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # --- ADDED STEP: Get ECR Registry URL again (needed to reconstruct URI) ---
+      - name: Login to Amazon ECR (to get registry URL)
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # --- END ADDED STEP ---
+
       - name: Download current backend task definition
         id: download-task-def-backend
         run: |
@@ -125,26 +128,29 @@ jobs:
           echo "Downloading task definition family: $BACKEND_ECS_TASK_DEFINITION_FAMILY"
           aws ecs describe-task-definition --task-definition "$BACKEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-backend.json
           echo "Task definition downloaded."
-          # Output the ARN of the downloaded definition for reference (optional)
           TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-backend.json)
           echo "Downloaded task definition ARN: $TASK_DEF_ARN"
 
       - name: Fill in new image ID in backend task definition
         id: render-task-def-backend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
+        env: # Make ECR Registry available to reconstruct image URI
+             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         with:
           task-definition: task-definition-backend.json
-          container-name: ${{ env.BACKEND_CONTAINER_NAME }} # Your main backend app container
-          image: ${{ needs.build-and-push.outputs.backend_image_uri }} # The specific SHA-tagged image URI
+          container-name: ${{ env.BACKEND_CONTAINER_NAME }}
+          # --- CHANGE: Reconstruct image URI ---
+          image: ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
+          # --- END CHANGE ---
 
       - name: Deploy backend task definition to ECS
         id: deploy-backend
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.render-task-def-backend.outputs.task-definition }} # The updated task def JSON
+          task-definition: ${{ steps.render-task-def-backend.outputs.task-definition }}
           service: ${{ env.BACKEND_ECS_SERVICE_NAME }}
           cluster: ${{ env.ECS_CLUSTER_NAME }}
-          wait-for-service-stability: true # Wait for new tasks to become healthy
+          wait-for-service-stability: true
 
   deploy-frontend:
     name: Deploy Frontend to ECS
@@ -160,6 +166,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # --- ADDED STEP: Get ECR Registry URL again ---
+      - name: Login to Amazon ECR (to get registry URL)
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # --- END ADDED STEP ---
+
       - name: Download current frontend task definition
         id: download-task-def-frontend
         run: |
@@ -173,19 +185,228 @@ jobs:
       - name: Fill in new image ID in frontend task definition
         id: render-task-def-frontend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
+        env: # Make ECR Registry available
+             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         with:
           task-definition: task-definition-frontend.json
           container-name: ${{ env.FRONTEND_CONTAINER_NAME }}
-          image: ${{ needs.build-and-push.outputs.frontend_image_uri }} # The specific SHA-tagged image URI
+          # --- CHANGE: Reconstruct image URI ---
+          image: ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
+          # --- END CHANGE ---
 
       - name: Deploy frontend task definition to ECS
         id: deploy-frontend
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.render-task-def-frontend.outputs.task-definition }} # The updated task def JSON
+          task-definition: ${{ steps.render-task-def-frontend.outputs.task-definition }}
           service: ${{ env.FRONTEND_ECS_SERVICE_NAME }}
           cluster: ${{ env.ECS_CLUSTER_NAME }}
           wait-for-service-stability: true
+
+
+
+
+
+
+
+
+# name: Deploy Aether to AWS ECS on Main Push
+
+# on:
+#   push:
+#     branches: [ main ] # Trigger deployment only on push to main
+
+# env:
+#   # Use secrets and variables for configuration
+#   AWS_REGION: ${{ secrets.AWS_REGION }}
+#   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+#   BACKEND_ECR_REPOSITORY: ${{ secrets.BACKEND_ECR_REPOSITORY }}     # Should be 'aether/aether-backend'
+#   FRONTEND_ECR_REPOSITORY: ${{ secrets.FRONTEND_ECR_REPOSITORY }}   # Should be 'aether/aether-frontend'
+#   ECS_CLUSTER_NAME: ${{ secrets.ECS_CLUSTER_NAME }}                 # Should be 'aether-cluster'
+#   BACKEND_ECS_SERVICE_NAME: ${{ secrets.BACKEND_ECS_SERVICE_NAME }} # Should be 'Aether-Backend-Prod'
+#   FRONTEND_ECS_SERVICE_NAME: ${{ secrets.FRONTEND_ECS_SERVICE_NAME }} # Should be 'Aether-Frontend-Prod'
+#   BACKEND_ECS_TASK_DEFINITION_FAMILY: ${{ secrets.BACKEND_ECS_TASK_DEFINITION_FAMILY }} # Should be 'aether-backend-task-def'
+#   FRONTEND_ECS_TASK_DEFINITION_FAMILY: ${{ secrets.FRONTEND_ECS_TASK_DEFINITION_FAMILY }} # Should be 'aether-frontend-task-def'
+#   BACKEND_CONTAINER_NAME: ${{ secrets.BACKEND_CONTAINER_NAME }}     # Should be 'aether-backend'
+#   FRONTEND_CONTAINER_NAME: ${{ secrets.FRONTEND_CONTAINER_NAME }}   # Should be 'aether-frontend'
+#   TARGET_PLATFORM: linux/amd64 # Target platform for Fargate
+
+# jobs:
+#   build-and-push:
+#     name: Build and Push Docker Images
+#     runs-on: ubuntu-latest
+#     permissions: # Added permissions for ECR login action
+#       contents: read
+#       packages: write # Needed for aws-actions/amazon-ecr-login@v2
+#     outputs:
+#       backend_image_uri: ${{ steps.build-push-backend.outputs.backend_image_uri }}
+#       frontend_image_uri: ${{ steps.build-push-frontend.outputs.frontend_image_uri }}
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Login to Amazon ECR
+#         id: login-ecr
+#         uses: aws-actions/amazon-ecr-login@v2
+
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+
+#       - name: Build, tag, and push Backend image
+#         id: build-push-backend
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           set -e # Exit on error
+#           BACKEND_ECR_URI_VAR="$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY" # Use temp var
+#           IMAGE_URI_WITH_TAG="$BACKEND_ECR_URI_VAR:$IMAGE_TAG" # Use temp var
+
+#           echo "Building backend for $TARGET_PLATFORM: $IMAGE_URI_WITH_TAG"
+#           # BACKEND_ECR_URI="$ECR_REGISTRY/$BACKEND_ECR_REPOSITORY"
+#           # echo "Building backend for $TARGET_PLATFORM: $BACKEND_ECR_URI:$IMAGE_TAG"
+#           docker buildx build \
+#             --platform ${{ env.TARGET_PLATFORM }} \
+#             -t "$IMAGE_URI_WITH_TAG" \
+#             -t "$BACKEND_ECR_URI_VAR:latest" \
+#             --output=type=image,push=true \
+#             -f backend/Dockerfile \
+#             ./backend
+#           echo "Backend build and push complete."
+#           echo "backend_image_uri=$IMAGE_URI_WITH_TAG" >> "$GITHUB_OUTPUT"
+#           echo "Set output backend_image_uri to ${IMAGE_URI_WITH_TAG}" # Add debug echo
+
+#       - name: Build, tag, and push Frontend image
+#         id: build-push-frontend
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           set -e # Exit on error
+
+#           FRONTEND_ECR_URI_VAR="$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY" # Use temp var
+#           IMAGE_URI_WITH_TAG="$FRONTEND_ECR_URI_VAR:$IMAGE_TAG" # Use temp var
+#           echo "Building frontend for $TARGET_PLATFORM: $IMAGE_URI_WITH_TAG"
+
+#           # FRONTEND_ECR_URI="$ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY"
+#           ALB_DNS_NAME="${{ secrets.ALB_DNS_NAME }}" # Get ALB DNS from secrets
+#           if [ -z "$ALB_DNS_NAME" ]; then
+#             echo "Error: ALB_DNS_NAME secret is not set."
+#             exit 1
+#           fi
+#           API_BASE_URL="http://${ALB_DNS_NAME}/server-api"
+#           echo "Building frontend for $TARGET_PLATFORM: $IMAGE_URI_WITH_TAG with API URL: $API_BASE_URL"
+#           docker buildx build \
+#             --platform ${{ env.TARGET_PLATFORM }} \
+#             --build-arg NEXT_PUBLIC_API_BASE_URL="$API_BASE_URL" \
+#             -t "$IMAGE_URI_WITH_TAG" \
+#             -t "$FRONTEND_ECR_URI_VAR:latest" \
+#             --output=type=image,push=true \
+#             -f frontend/Dockerfile \
+#             ./frontend
+#           echo "Frontend build and push complete."
+#           echo "frontend_image_uri=$IMAGE_URI_WITH_TAG" >> "$GITHUB_OUTPUT"
+#           echo "Set output frontend_image_uri to ${IMAGE_URI_WITH_TAG}" # Add debug echo
+
+#   deploy-backend:
+#     name: Deploy Backend to ECS
+#     runs-on: ubuntu-latest
+#     needs: build-and-push # Depends on the build job completion
+#     environment: production # Optional: Define a GitHub environment
+
+#     steps:
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Download current backend task definition
+#         id: download-task-def-backend
+#         run: |
+#           set -e
+#           echo "Downloading task definition family: $BACKEND_ECS_TASK_DEFINITION_FAMILY"
+#           aws ecs describe-task-definition --task-definition "$BACKEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-backend.json
+#           echo "Task definition downloaded."
+#           # Output the ARN of the downloaded definition for reference (optional)
+#           TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-backend.json)
+#           echo "Downloaded task definition ARN: $TASK_DEF_ARN"
+
+#       - name: Fill in new image ID in backend task definition
+#         id: render-task-def-backend
+#         uses: aws-actions/amazon-ecs-render-task-definition@v1
+#         with:
+#           task-definition: task-definition-backend.json
+#           container-name: ${{ env.BACKEND_CONTAINER_NAME }} # Your main backend app container
+#           image: ${{ needs.build-and-push.outputs.backend_image_uri }} # The specific SHA-tagged image URI
+
+#       - name: Deploy backend task definition to ECS
+#         id: deploy-backend
+#         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+#         with:
+#           task-definition: ${{ steps.render-task-def-backend.outputs.task-definition }} # The updated task def JSON
+#           service: ${{ env.BACKEND_ECS_SERVICE_NAME }}
+#           cluster: ${{ env.ECS_CLUSTER_NAME }}
+#           wait-for-service-stability: true # Wait for new tasks to become healthy
+
+#   deploy-frontend:
+#     name: Deploy Frontend to ECS
+#     runs-on: ubuntu-latest
+#     needs: build-and-push
+#     environment: production
+
+#     steps:
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Download current frontend task definition
+#         id: download-task-def-frontend
+#         run: |
+#           set -e
+#           echo "Downloading task definition family: $FRONTEND_ECS_TASK_DEFINITION_FAMILY"
+#           aws ecs describe-task-definition --task-definition "$FRONTEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-frontend.json
+#           echo "Task definition downloaded."
+#           TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-frontend.json)
+#           echo "Downloaded task definition ARN: $TASK_DEF_ARN"
+
+#       - name: Fill in new image ID in frontend task definition
+#         id: render-task-def-frontend
+#         uses: aws-actions/amazon-ecs-render-task-definition@v1
+#         with:
+#           task-definition: task-definition-frontend.json
+#           container-name: ${{ env.FRONTEND_CONTAINER_NAME }}
+#           image: ${{ needs.build-and-push.outputs.frontend_image_uri }} # The specific SHA-tagged image URI
+
+#       - name: Deploy frontend task definition to ECS
+#         id: deploy-frontend
+#         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+#         with:
+#           task-definition: ${{ steps.render-task-def-frontend.outputs.task-definition }} # The updated task def JSON
+#           service: ${{ env.FRONTEND_ECS_SERVICE_NAME }}
+#           cluster: ${{ env.ECS_CLUSTER_NAME }}
+#           wait-for-service-stability: true
+
+
+
+
+
+
+
+
+
 
 # name: Deploy Aether to AWS ECS
 
