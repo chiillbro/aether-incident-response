@@ -41,11 +41,11 @@ import { Button } from '@/components/ui/button';
 import { CreateIncidentDialog } from '@/components/incidents/CreateIncidentDialog';
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 import { AlertTriangle } from 'lucide-react';
+import { SignOutButton } from '@/components/auth/SignOutButton';
 
 export default function DashboardPage() {
   const { data: incidents, isLoading, error, refetch } = useIncidents();
 
-  console.log("data", incidents)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const handleIncidentCreated = () => {
@@ -83,6 +83,8 @@ export default function DashboardPage() {
       {!isLoading && !error && (!incidents || incidents.length === 0) && (
          <p className="text-center text-gray-500 mt-8">No incidents found.</p>
       )}
+
+      <SignOutButton />
 
       <CreateIncidentDialog
         isOpen={isCreateDialogOpen}

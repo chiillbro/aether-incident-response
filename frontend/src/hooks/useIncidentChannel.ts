@@ -302,11 +302,30 @@ export const useIncidentChannel = (incidentId: string | null | undefined) => {
     console.log(`WS: Initializing connection for incident: ${incidentId}`);
     setStatus('connecting');
 
-    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-    const newSocket = io(socketUrl, {
+    // const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+    // Base URL for the backend API (includes /server-api)
+    // const socketBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const socketBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/server-api', ''); // Get 
+
+    if (!socketBaseUrl) {
+        console.error("WS: NEXT_PUBLIC_API_BASE_URL is not defined!");
+        setError("API URL configuration missing.");
+        setStatus('error');
+        isConnecting.current = false;
+        return;
+    }
+
+    console.log("WS: Socket URL:", socketBaseUrl)
+    const newSocket = io(socketBaseUrl, {
+      path: '/server-api/socket.io', // Explicitly specify the standard Socket.IO path
+      // Note: Socket.IO server (NestJS gateway) implicitly handles this path
+      //       relative to its own root or global prefix.
       reconnectionAttempts: 5,
       timeout: 10000,
       auth: { token: session.accessToken },
+      // IMPORTANT: Ensure transports include 'websocket'. Polling might be blocked by some infra.
+      transports: ["websocket", "polling"],
     });
 
     socketRef.current = newSocket;

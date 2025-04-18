@@ -8,10 +8,13 @@ export class NotificationsService {
     // Simple simulation - logs to console
     async sendNotification(userId: string, message: string): Promise<void> {
         this.logger.log(`SIMULATED NOTIFICATION for User ${userId}: ${message}`);
+
+        
         // In a real scenario, this would:
         // 1. Add a job to a queue (BullMQ/Redis)
         // 2. A worker process would pick up the job
         // 3. The worker would send email, push notification, websocket message, etc.
+
         await Promise.resolve(); // Simulate async operation
     }
 

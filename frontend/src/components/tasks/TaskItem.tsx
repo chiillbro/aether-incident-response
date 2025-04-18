@@ -62,8 +62,6 @@ export function TaskItem({ task, incidentId, currentUserRole }: TaskItemProps) {
 
   const canDeleteTask = currentUserRole === Role.ADMIN; // Example: Only Admins delete
 
-  console.log("currentUserRole", currentUserRole)
-
   return (
     <Card className={cn("transition-opacity", (isUpdating || isDeleting || isAssigning) && "opacity-70")}>
       <CardContent className="p-3 flex items-start gap-3">

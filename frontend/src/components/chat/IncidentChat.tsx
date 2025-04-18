@@ -13,7 +13,7 @@ interface IncidentChatProps {
   incidentId: string; // Needed for context/debugging maybe
   isLoading: boolean; // To disable input while connecting
   typingUsers: Map<string, string>;
-  users: UserSnippet[]; // Assuming you have user data
+  users?: UserSnippet[]; // Assuming you have user data
   onTyping: () => void;
 }
 

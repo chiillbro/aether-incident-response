@@ -36,6 +36,8 @@ export function RegisterForm() {
 
     try {
       const backendRegisterUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/register`;
+
+      console.log("Register URL:", backendRegisterUrl)
       const response = await axios.post(backendRegisterUrl, {
         name: data.name,
         email: data.email,

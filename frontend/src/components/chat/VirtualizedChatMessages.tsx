@@ -188,7 +188,7 @@ import { TypingIndicator } from './TypingIndicator';
 
 interface VirtualizedChatMessagesProps {
   messages: Message[];
-  users: UserSnippet[];
+  users?: UserSnippet[];
   typingUsers: Map<string, string>;
 }
 

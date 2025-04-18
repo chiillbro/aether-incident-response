@@ -1,4 +1,37 @@
-"use client"
+'use client';
+
+import { LoginForm } from '@/components/auth/LoginForm';
+import { Suspense } from 'react'; // For handling searchParams
+import { useSearchParams } from 'next/navigation';
+
+// Optional: Display a message if redirected from registration
+function RegistrationMessage() {
+    const searchParams = useSearchParams();
+    const registered = searchParams.get('registered');
+
+    if (registered) {
+        return <p className="text-green-600 text-center mb-4">Registration successful! Please log in.</p>;
+    }
+    return null;
+}
+// Because RegistrationMessage uses useSearchParams, it must be a Client Component
+// OR wrapped in Suspense in its parent Server Component (LoginPage)
+
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+       {/* Wrap client component using searchParams in Suspense */}
+       <Suspense fallback={<div>Loading message...</div>}>
+           <RegistrationMessage />
+       </Suspense>
+      
+      <Suspense fallback={<div>Loading message...</div>}>
+          <LoginForm />
+      </Suspense>
+    </div>
+  );
+}
 
 // import { useState } from "react";
 // import { signIn, signOut, useSession } from "next-auth/react";
@@ -161,34 +194,3 @@
 //     </div>
 //   );
 // };
-
-// frontend/src/app/(auth)/login/page.tsx
-import { LoginForm } from '@/components/auth/LoginForm';
-import { Suspense } from 'react'; // For handling searchParams
-
-// Optional: Display a message if redirected from registration
-function RegistrationMessage() {
-    const searchParams = useSearchParams();
-    const registered = searchParams.get('registered');
-
-    if (registered) {
-        return <p className="text-green-600 text-center mb-4">Registration successful! Please log in.</p>;
-    }
-    return null;
-}
-// Because RegistrationMessage uses useSearchParams, it must be a Client Component
-// OR wrapped in Suspense in its parent Server Component (LoginPage)
-import { useSearchParams } from 'next/navigation';
-
-
-export default function LoginPage() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-       {/* Wrap client component using searchParams in Suspense */}
-       <Suspense fallback={<div>Loading message...</div>}>
-           <RegistrationMessage />
-       </Suspense>
-      <LoginForm />
-    </div>
-  );
-}

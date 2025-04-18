@@ -1,11 +1,11 @@
 // frontend/src/lib/auth.ts
-import { NextAuthOptions, User as NextAuthUser } from 'next-auth';
+import { DefaultSession, DefaultUser, NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import axios from 'axios'; // Use standard axios here, not the interceptor instance
 
 // Augment NextAuth types to include properties from your backend
 declare module 'next-auth' {
-  interface User extends NextAuthUser {
+  interface User extends DefaultUser {
     id: string;
     role: string; // Assuming role is always present
     teamId?: string | null;
@@ -15,7 +15,7 @@ declare module 'next-auth' {
     };
   }
 
-  interface Session {
+  interface Session extends DefaultSession {
     user: User;
     accessToken: string; // Expose backend access token directly on session
     error?: 'CredentialsSignin' | string | null; // Optional error field
@@ -52,8 +52,14 @@ export const authOptions: NextAuthOptions = {
           // throw new Error("Missing email or password");
         }
 
+        let backendLoginUrl;
+        if (process.env.NODE_ENV === 'development') {
+            backendLoginUrl = `http://backend:3000/server-api/auth/login`;
+        } else {
+            backendLoginUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`;
+        }
         // const backendLoginUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`;
-        const backendLoginUrl = `http://backend:3000/auth/login`;
+        // const backendLoginUrl = `http://backend:3000/server-api/auth/login`;
         console.log(`Attempting login for ${credentials.email} to ${backendLoginUrl}`);
 
         try {
@@ -74,7 +80,7 @@ export const authOptions: NextAuthOptions = {
           if (response.status === 201 || response.status === 200 && data?.user && data?.accessToken) {
             console.log('Login successful for:', data.user.email);
             // Prepare the user object for NextAuth, including the backend token
-            const user: NextAuthUser = {
+            const user = {
               id: data.user.id,
               name: data.user.name,
               email: data.user.email,
@@ -117,13 +123,13 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     // This callback is called whenever a JWT is created (signing in) or updated (session accessed).
-    async jwt({ token, user, account, profile, isNewUser }) {
+    async jwt({ token, user }) {
       // `user` object is passed on initial sign-in (from authorize)
       // `account` object has provider details
-      if (account && user && user.backendTokens) {
+      if (user) {
         // On successful sign-in, persist the backend access token and user details to the JWT
         console.log('JWT Callback: Signing in - Adding user data and token to JWT');
-        token.accessToken = user.backendTokens.accessToken;
+        token.accessToken = user.backendTokens!.accessToken;
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
@@ -135,7 +141,7 @@ export const authOptions: NextAuthOptions = {
     },
 
     // This callback is called whenever a session is checked.
-    async session({ session, token, user }) {
+    async session({ session, token }) {
       // `token` comes from the `jwt` callback.
       // We expose the necessary user info and the backend accessToken to the client session.
       if (token) {

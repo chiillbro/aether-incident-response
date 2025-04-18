@@ -43,6 +43,8 @@ interface TypingInfo {
 // interface TypingPayload { incidentId: string; isTyping: boolean; } // Refined Typing payload
 
 @WebSocketGateway({
+   path: '/server-api/socket.io', // Explicitly set the path INCLUDING the prefix
+
    cors: { // Configure CORS for WebSocket connections
       origin: process.env.CORS_ORIGIN || 'http://localhost:3000', // Use env var
       methods: ['GET', 'POST'],
@@ -64,6 +66,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
    ) {}
 
    afterInit(server: Server) {
+      console.log("server", server)
       this.logger.log('WebSocket Gateway Initialized');
       // Attach authentication middleware here if preferred over handleConnection
       // server.use(async (socket: AuthenticatedSocket, next) => { ... });
@@ -427,5 +430,3 @@ handleLeaveTeamRoom(
 }
 
 }
-
-
