@@ -1,0 +1,6 @@
+# backend/.dockerignore
+node_modules
+.env
+*.log
+.git
+.DS_Store

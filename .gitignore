@@ -1,4 +1,58 @@
-.env
+# ──────────────── Node / Frontend ────────────────
+# dependencies
 node_modules/
-dist/
+
+# Next.js / Vite / build outputs
 .next/
+dist/
+build/
+out/
+
+# local env files
+.env
+.env.*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ──────────────── Backend ────────────────
+# if you have a compiled output folder, e.g. for NestJS
+backend/dist/
+
+# ──────────────── Terraform ────────────────
+# Local Terraform directories & generated files
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/crash.log
+terraform/override.tfvars
+terraform/*.override.tfvars
+terraform/terraform.tfvars   # if you store secrets here
+
+# Keep your lock file so that providers versions are pinned:
+#   terraform/.terraform.lock.hcl
+
+# ──────────────── Docker ────────────────
+# build directories
+docker-compose.override.yml
+**/Dockerfile.*.swp
+
+# ──────────────── OS & Editor ────────────────
+# macOS
+.DS_Store
+
+# Vim swap files
+*.swp
+
+# JetBrains
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# ──────────────── Others ────────────────
+# any local script caches or secrets
+*.log
+*.key
