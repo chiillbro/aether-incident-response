@@ -96,7 +96,7 @@ jobs:
             --platform ${{ env.TARGET_PLATFORM }} \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$API_BASE_URL" \
             -t "$IMAGE_URI_WITH_TAG" \
-            -t "$FRONTEND_ECR_URI:latest" \
+            -t "$FRONTEND_ECR_URI_VAR:latest" \
             --output=type=image,push=true \
             -f frontend/Dockerfile \
             ./frontend
