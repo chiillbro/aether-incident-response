@@ -121,26 +121,71 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
       # --- END ADDED STEP ---
 
-      - name: Download current backend task definition
-        id: download-task-def-backend
+      - name: Download and Clean backend task definition
+        id: download-task-def-backend # Renamed ID for clarity
         run: |
           set -e
           echo "Downloading task definition family: $BACKEND_ECS_TASK_DEFINITION_FAMILY"
-          aws ecs describe-task-definition --task-definition "$BACKEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-backend.json
-          echo "Task definition downloaded."
-          TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-backend.json)
-          echo "Downloaded task definition ARN: $TASK_DEF_ARN"
+          # Download full definition
+          aws ecs describe-task-definition --task-definition "$BACKEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-backend-full.json
+          # --- Clean the JSON using jq ---
+          # Select only the keys required by RegisterTaskDefinition API
+          # List based on AWS documentation/common usage, might need minor adjustments
+          jq '{
+            family: .family,
+            taskRoleArn: .taskRoleArn,
+            executionRoleArn: .executionRoleArn,
+            networkMode: .networkMode,
+            containerDefinitions: .containerDefinitions,
+            volumes: .volumes,
+            placementConstraints: .placementConstraints,
+            requiresCompatibilities: .requiresCompatibilities,
+            cpu: .cpu,
+            memory: .memory,
+            tags: .tags,
+            pidMode: .pidMode,
+            ipcMode: .ipcMode,
+            proxyConfiguration: .proxyConfiguration,
+            inferenceAccelerators: .inferenceAccelerators,
+            ephemeralStorage: .ephemeralStorage,
+            runtimePlatform: .runtimePlatform # Include runtimePlatform if needed/supported by register
+          } | del(.. | nulls)' task-definition-backend-full.json > task-definition-backend.json
+          # --- End Cleaning ---
+          echo "Cleaned task definition:"
+          cat task-definition-backend.json
+          TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-backend-full.json) # Get ARN from original
+          echo "Original task definition ARN: $TASK_DEF_ARN"
 
       - name: Fill in new image ID in backend task definition
         id: render-task-def-backend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
-        env: # Make ECR Registry available to reconstruct image URI
+        env:
              ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         with:
-          task-definition: task-definition-backend.json
+          task-definition: task-definition-backend.json # Use the cleaned JSON file
           container-name: ${{ env.BACKEND_CONTAINER_NAME }}
-          # --- CHANGE: Reconstruct image URI ---
           image: ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
+
+      # - name: Download current backend task definition
+      #   id: download-task-def-backend
+      #   run: |
+      #     set -e
+      #     echo "Downloading task definition family: $BACKEND_ECS_TASK_DEFINITION_FAMILY"
+      #     aws ecs describe-task-definition --task-definition "$BACKEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-backend.json
+      #     echo "Task definition downloaded."
+      #     TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-backend.json)
+      #     echo "Downloaded task definition ARN: $TASK_DEF_ARN"
+
+      # - name: Fill in new image ID in backend task definition
+      #   id: render-task-def-backend
+      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
+      #   env: # Make ECR Registry available to reconstruct image URI
+      #        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #   with:
+      #     task-definition: task-definition-backend.json
+      #     container-name: ${{ env.BACKEND_CONTAINER_NAME }}
+      #     # --- CHANGE: Reconstruct image URI ---
+      #     image: ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
           # --- END CHANGE ---
 
       - name: Deploy backend task definition to ECS
@@ -172,27 +217,69 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
       # --- END ADDED STEP ---
 
-      - name: Download current frontend task definition
-        id: download-task-def-frontend
+      # - name: Download current frontend task definition
+      #   id: download-task-def-frontend
+      #   run: |
+      #     set -e
+      #     echo "Downloading task definition family: $FRONTEND_ECS_TASK_DEFINITION_FAMILY"
+      #     aws ecs describe-task-definition --task-definition "$FRONTEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-frontend.json
+      #     echo "Task definition downloaded."
+      #     TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-frontend.json)
+      #     echo "Downloaded task definition ARN: $TASK_DEF_ARN"
+
+      # - name: Fill in new image ID in frontend task definition
+      #   id: render-task-def-frontend
+      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
+      #   env: # Make ECR Registry available
+      #        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #   with:
+      #     task-definition: task-definition-frontend.json
+      #     container-name: ${{ env.FRONTEND_CONTAINER_NAME }}
+      #     # --- CHANGE: Reconstruct image URI ---
+      #     image: ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
+      #     # --- END CHANGE ---
+
+      - name: Download and Clean frontend task definition
+        id: download-task-def-frontend # Renamed ID
         run: |
           set -e
           echo "Downloading task definition family: $FRONTEND_ECS_TASK_DEFINITION_FAMILY"
-          aws ecs describe-task-definition --task-definition "$FRONTEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-frontend.json
-          echo "Task definition downloaded."
-          TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-frontend.json)
-          echo "Downloaded task definition ARN: $TASK_DEF_ARN"
+          aws ecs describe-task-definition --task-definition "$FRONTEND_ECS_TASK_DEFINITION_FAMILY" --query taskDefinition > task-definition-frontend-full.json
+          # --- Clean the JSON using jq ---
+          jq '{
+            family: .family,
+            taskRoleArn: .taskRoleArn,
+            executionRoleArn: .executionRoleArn,
+            networkMode: .networkMode,
+            containerDefinitions: .containerDefinitions,
+            volumes: .volumes,
+            placementConstraints: .placementConstraints,
+            requiresCompatibilities: .requiresCompatibilities,
+            cpu: .cpu,
+            memory: .memory,
+            tags: .tags,
+            pidMode: .pidMode,
+            ipcMode: .ipcMode,
+            proxyConfiguration: .proxyConfiguration,
+            inferenceAccelerators: .inferenceAccelerators,
+            ephemeralStorage: .ephemeralStorage,
+            runtimePlatform: .runtimePlatform
+          } | del(.. | nulls)' task-definition-frontend-full.json > task-definition-frontend.json
+          # --- End Cleaning ---
+          echo "Cleaned task definition:"
+          cat task-definition-frontend.json
+          TASK_DEF_ARN=$(jq -r .taskDefinitionArn task-definition-frontend-full.json)
+          echo "Original task definition ARN: $TASK_DEF_ARN"
 
       - name: Fill in new image ID in frontend task definition
         id: render-task-def-frontend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
-        env: # Make ECR Registry available
+        env:
              ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         with:
-          task-definition: task-definition-frontend.json
+          task-definition: task-definition-frontend.json # Use the cleaned JSON file
           container-name: ${{ env.FRONTEND_CONTAINER_NAME }}
-          # --- CHANGE: Reconstruct image URI ---
           image: ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
-          # --- END CHANGE ---
 
       - name: Deploy frontend task definition to ECS
         id: deploy-frontend
