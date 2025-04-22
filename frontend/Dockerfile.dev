@@ -1,0 +1,19 @@
+# frontend/Dockerfile.dev (For Local Development Only)
+FROM node:18-alpine
+# Removed stage name 'AS development' as it's not needed for a single-stage dev file
+
+WORKDIR /app
+
+# Install dependencies first (leverages cache)
+COPY package.json package-lock.json ./
+RUN npm install --legacy-peer-deps
+# Use install for dev, might need legacy peer deps
+
+# Copy the rest of the application code
+COPY . .
+
+# Expose port 3000 for Next.js dev server
+EXPOSE 3000
+
+# Default command to run the dev server
+CMD ["npm", "run", "dev"]

@@ -1,83 +1,164 @@
+# docker-compose.yml (Base configuration)
 # version: '3.8'
+
 services:
   postgres:
     image: postgres:15
-    container_name: aether_postgres_dev
+    container_name: aether_postgres_base # Changed name slightly
+    # Security Note: Ideally use Docker Secrets or external config for passwords
     environment:
-      POSTGRES_USER: user # Same as in DATABASE_URL
-      POSTGRES_PASSWORD: password # Same as in DATABASE_URL
-      POSTGRES_DB: aether_dev # Same as in DATABASE_URL
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-user} # Use host env var or default
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-aether_dev}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - aether_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d aether_dev"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-user} -d $${POSTGRES_DB:-aether_dev}"] # Use env var in healthcheck
       interval: 5s
-      timeout: 5s 
+      timeout: 5s
       retries: 5
+    restart: unless-stopped # Optional: Restart DB if it stops unexpectedly
 
   redis:
     image: redis:7-alpine
-    container_name: aether_redis_dev
-    ports:
-      - "6379:6379"
+    container_name: aether_redis_base # Changed name slightly
     networks:
       - aether_network
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 2s
       retries: 5
+    restart: unless-stopped # Optional: Restart Redis if it stops
 
   backend:
-    build: ./backend # Points to the directory with backend Dockerfile
-    container_name: aether_backend_dev
-    # command: npm run start:dev # Command to run inside the container
-    # command: sh -c "echo 'Waiting for DB Migration...' && npx prisma migrate deploy && echo 'DB Migration Completed.' && echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
-    command: sh -c "echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
-    # environment:
-    # - DATABASE_URL=postgresql://user:password@postgres:5432/aether_dev?schema=public
-    ports:
-      - "3001:3000" # Expose NestJS default port 3000 as 3001 locally
+    build:
+      context: ./backend
+      dockerfile: Dockerfile # Uses the multi-stage Dockerfile
+    container_name: aether_backend_base # Base name
+    env_file:
+      - ./backend/.env # Loads DATABASE_URL, JWT_SECRET etc. for the container
+    networks:
+      - aether_network
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # - postgres
-      # - redis
-    volumes:
-      - ./backend:/app # Mount local backend code into container
-      - /app/node_modules # Avoid overwriting container node_modules
-    env_file:
-      - ./backend/.env # Pass environment variables
-    networks:
-      - aether_network
+    # Default CMD comes from the Dockerfile's production stage
+    # Default NODE_ENV=production comes from Dockerfile
 
   frontend:
-    build: ./frontend
-    container_name: aether_frontend_dev
-    command: npm run dev # Command to run inside the container
-    ports:
-      - "3000:3000" # Expose Next.js default port 3000 locally
-    depends_on:
-      - backend # Depends on backend being available (for API calls)
-    volumes:
-      - ./frontend:/app # Mount local frontend code into container
-      - /app/node_modules
-      - /app/.next
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile # Uses the multi-stage Dockerfile
+    container_name: aether_frontend_base # Base name
     env_file:
-      - ./frontend/.env.local # Pass environment variables
+      - ./frontend/.env.local # Loads NEXTAUTH secrets etc. for the container
     networks:
       - aether_network
+    depends_on:
+      - backend # Depends on backend starting (but not necessarily healthy yet)
+    # Default CMD comes from the Dockerfile's production stage
+    # Default NODE_ENV=production comes from Dockerfile
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   aether_network:
-    name: aether_network
+    name: aether_network_dev # Keep dev suffix for local network name maybe?
     driver: bridge
+    attachable: true
+
+
+
+# # version: '3.8'
+# services:
+#   postgres:
+#     image: postgres:15
+#     container_name: aether_postgres_dev
+#     environment:
+#       POSTGRES_USER: user # Same as in DATABASE_URL
+#       POSTGRES_PASSWORD: password # Same as in DATABASE_URL
+#       POSTGRES_DB: aether_dev # Same as in DATABASE_URL
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     networks:
+#       - aether_network
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U user -d aether_dev"]
+#       interval: 5s
+#       timeout: 5s 
+#       retries: 5
+
+#   redis:
+#     image: redis:7-alpine
+#     container_name: aether_redis_dev
+#     ports:
+#       - "6379:6379"
+#     networks:
+#       - aether_network
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "ping"]
+#       interval: 5s
+#       timeout: 2s
+#       retries: 5
+
+#   backend:
+#     build: ./backend # Points to the directory with backend Dockerfile
+#     container_name: aether_backend_dev
+#     # command: npm run start:dev # Command to run inside the container
+#     # command: sh -c "echo 'Waiting for DB Migration...' && npx prisma migrate deploy && echo 'DB Migration Completed.' && echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
+#     command: sh -c "echo 'Rebuilding bcrypt...' && npm rebuild bcrypt --build-from-source && echo 'Bcrypt rebuilt. Starting Backend...' && npm run start:dev"
+#     # environment:
+#     # - DATABASE_URL=postgresql://user:password@postgres:5432/aether_dev?schema=public
+#     ports:
+#       - "3001:3000" # Expose NestJS default port 3000 as 3001 locally
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#       redis:
+#         condition: service_healthy
+#       # - postgres
+#       # - redis
+#     volumes:
+#       - ./backend:/app # Mount local backend code into container
+#       - /app/node_modules # Avoid overwriting container node_modules
+#     env_file:
+#       - ./backend/.env # Pass environment variables
+#     networks:
+#       - aether_network
+
+#   frontend:
+#     build: ./frontend
+#     container_name: aether_frontend_dev
+#     command: npm run dev # Command to run inside the container
+#     ports:
+#       - "3000:3000" # Expose Next.js default port 3000 locally
+#     depends_on:
+#       - backend # Depends on backend being available (for API calls)
+#     volumes:
+#       - ./frontend:/app # Mount local frontend code into container
+#       - /app/node_modules
+#       - /app/.next
+#     env_file:
+#       - ./frontend/.env.local # Pass environment variables
+#     networks:
+#       - aether_network
+
+# volumes:
+#   postgres_data:
+
+# networks:
+#   aether_network:
+#     name: aether_network
+#     driver: bridge
