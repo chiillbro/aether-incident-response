@@ -2,7 +2,7 @@
 import { IsOptional, IsUUID } from 'class-validator';
 
 export class AssignTaskDto {
-    @IsOptional() // Optional allows unassigning by sending null/undefined on PATCH
     @IsUUID()
+    @IsOptional() // Optional allows unassigning by sending null/undefined on PATCH
     assigneeId?: string | null; // Allow null to represent unassigning
 }

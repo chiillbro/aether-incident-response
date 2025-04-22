@@ -42,6 +42,25 @@ export class UsersService {
     return this.prisma.user.findMany();
   }
 
+  // --- NEW Method for Admin UI ---
+  async findAllLite(searchTerm?: string): Promise<Omit<User, 'passwordHash'>[]> {
+    // Basic findMany, add where clause for searchTerm if implemented
+    // Add take/skip for pagination later
+    return this.prisma.user.findMany({
+        select: { // Explicitly select non-sensitive fields
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            teamId: true,
+            createdAt: true,
+            updatedAt: true,
+            // DO NOT SELECT passwordHash
+        },
+        orderBy: { name: 'asc' } // Order by name
+    });
+}
+
   async create(data: Prisma.UserCreateInput): Promise<User> {
     // Prisma automatically handles default values like createdAt, updatedAt, id, role
     return this.prisma.user.create({

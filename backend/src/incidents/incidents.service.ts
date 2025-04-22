@@ -120,8 +120,9 @@ import { Prisma, Incident, User, Team, Role, IncidentStatus } from '@prisma/clie
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway'; // <-- Import Gateway
-import { NotificationsService } from '../notifications/notifications.service'; // <-- Import Notifications
+// import { NotificationsService } from '../notifications/notifications.service'; // <-- Import Notifications
  import { TeamsService } from '../teams/teams.service'; // <-- Import TeamsService
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 
 @Injectable()
@@ -129,7 +130,8 @@ export class IncidentsService {
   constructor(
     private prisma: PrismaService,
     private eventsGateway: EventsGateway, // <-- Inject Gateway
-    private notificationService: NotificationsService, // <-- Inject Notifications
+    private emitter2: EventEmitter2,
+    // private notificationService: NotificationsService, // <-- Inject Notifications
     private teamsService: TeamsService, // <-- Inject TeamsService
     // TasksService might be needed if deleting incident cascades tasks and needs cleanup/notifications
     // @Inject(forwardRef(() => TasksService))
@@ -210,11 +212,13 @@ export class IncidentsService {
       this.eventsGateway.emitIncidentCreated(incident); // Assuming this method exists in gateway
 
       // Send notification to the assigned team
-      this.notificationService.sendNotificationToTeam(
-        incident.teamId,
-        incident.title,
-        `New Incident "${incident.title}" (Severity: ${incident.severity}) reported by ${creator.name} requires attention.`
-      );
+    //   this.notificationService.sendNotificationToTeam(
+    //     incident.teamId,
+    //     incident.title,
+    //     `New Incident "${incident.title}" (Severity: ${incident.severity}) reported by ${creator.name} requires attention.`
+    //   );
+
+    this.emitter2.emit('incident.created', {incident, creator}); // Emit event to all listeners
 
       return incident;
     } catch (error) {
@@ -324,11 +328,13 @@ export class IncidentsService {
       this.eventsGateway.emitIncidentStatusUpdated(incidentId, updatedIncident.status, safeUser);
 
      // Send notification
-     this.notificationService.sendNotificationToTeam(
-         updatedIncident.teamId,
-         updatedIncident.title,
-         `Incident "${updatedIncident.title}" status changed from ${incident.status} to ${updatedIncident.status} by ${user.name}.`
-     );
+    //  this.notificationService.sendNotificationToTeam(
+    //      updatedIncident.teamId,
+    //      updatedIncident.title,
+    //      `Incident "${updatedIncident.title}" status changed from ${incident.status} to ${updatedIncident.status} by ${user.name}.`
+    //  );
+
+    this.emitter2.emit('incident.status.updated', {incidentId, oldStatus: incident.status, newStatus: updatedIncident.status, updatedByUser: user, incidentTitle: updatedIncident.title, teamId: updatedIncident.teamId}); // Emit event to all listeners
 
      return updatedIncident;
   }

@@ -9,20 +9,33 @@ import {
   NotFoundException,
   UsePipes,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Prisma, User } from '@prisma/client';
 import { UsersService } from './users.service';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('users')
 export class UserController {
   constructor(private readonly usersService: UsersService) {}
 
-  // GET /users - Retrieve all users
+  // GET /users - Only accessible by ADMIN
+  // TODO: Add pagination & search query params later for optimization
   @Get()
-  async findAll(): Promise<User[]> {
-    return this.usersService.findAll();
+  // @Roles(Roles.ADMIN)
+  async findAll(
+    // Example Query Params (implement filtering in service later)
+     // @Query('search') searchTerm?: string,
+     // @Query('page') page: number = 1,
+     // @Query('limit') limit: number = 20,
+  ): Promise<Omit<User, 'passwordHash'>[]> {
+    // Fetch users using the service, selecting only non-sensitive fields
+    return this.usersService.findAllLite(); // Add this method to UsersService
   }
 
   // GET /users/:id - Retrieve a user by id

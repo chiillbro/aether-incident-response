@@ -66,7 +66,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
    ) {}
 
    afterInit(server: Server) {
-      console.log("server", server)
+      // console.log("server", server)
       this.logger.log('WebSocket Gateway Initialized');
       // Attach authentication middleware here if preferred over handleConnection
       // server.use(async (socket: AuthenticatedSocket, next) => { ... });

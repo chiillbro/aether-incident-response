@@ -68,14 +68,14 @@ import { RolesGuard } from 'src/auth/guards/roles.guard'; // <-- Import Guard
 import { Roles } from 'src/auth/decorators/roles.decorator'; // <-- Import Decorator
 import { Role } from '@prisma/client';
 
-@UseGuards(JwtAuthGuard) // Apply auth guard globally
+@UseGuards(JwtAuthGuard, RolesGuard) // Apply auth guard globally
 @Controller('teams')
 export class TeamsController {
 constructor(private readonly teamsService: TeamsService) {}
 
 // POST /teams
 @Post()
-@UseGuards(RolesGuard) // Apply RolesGuard *after* JwtAuthGuard
+// @UseGuards(RolesGuard) // Apply RolesGuard *after* JwtAuthGuard
 @Roles(Role.ADMIN) // Only ADMINs can create teams
 @HttpCode(HttpStatus.CREATED)
 create(@Body() createTeamDto: CreateTeamDto) {
@@ -106,7 +106,7 @@ findOne(@Param('id', ParseUUIDPipe) id: string) {
 
 // PATCH /teams/:id
 @Patch(':id')
-@UseGuards(RolesGuard)
+// @UseGuards(RolesGuard)
 @Roles(Role.ADMIN) // Only ADMINs can update team details
 update(
   @Param('id', ParseUUIDPipe) id: string,
@@ -117,7 +117,7 @@ update(
 
 // DELETE /teams/:id
 @Delete(':id')
-@UseGuards(RolesGuard)
+// @UseGuards(RolesGuard)
 @Roles(Role.ADMIN) // Only ADMINs can delete teams
 @HttpCode(HttpStatus.OK)
 remove(@Param('id', ParseUUIDPipe) id: string) {
@@ -128,7 +128,7 @@ remove(@Param('id', ParseUUIDPipe) id: string) {
 
 // POST /teams/:id/users - Add user to team
 @Post(':id/users')
-@UseGuards(RolesGuard)
+// @UseGuards(RolesGuard)
 @Roles(Role.ADMIN) // Only ADMINs can add users to teams
 @HttpCode(HttpStatus.OK) // Or CREATED if returning the user record seems like creation
 addUser(
@@ -140,7 +140,7 @@ addUser(
 
 // DELETE /teams/:id/users/:userId - Remove user from team
 @Delete(':id/users/:userId') // Use userId directly in path for RESTfulness
-@UseGuards(RolesGuard)
+// @UseGuards(RolesGuard)
 @Roles(Role.ADMIN) // Only ADMINs can remove users
 @HttpCode(HttpStatus.OK)
 removeUser(

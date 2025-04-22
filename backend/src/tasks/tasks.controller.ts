@@ -70,7 +70,7 @@ findOne(
 @Patch(':taskId')
 @HttpCode(HttpStatus.OK)
 update(
-    @Param('incidentId', ParseUUIDPipe) incidentId: string, // Keep for context
+    @Param('incidentId', ParseUUIDPipe) incidentId: string, // Keep for context, though service uses taskId
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() updateTaskDto: UpdateTaskDto,
     @Request() req: RequestWithUser,

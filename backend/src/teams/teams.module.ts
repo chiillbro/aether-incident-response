@@ -21,7 +21,7 @@ import { UsersModule } from '../users/users.module'; // <-- Import UsersModule
 
 @Module({
   imports: [
-      PrismaModule,
+      // PrismaModule,
       UsersModule, // <-- Add UsersModule to make UsersService available
   ],
   controllers: [TeamsController],

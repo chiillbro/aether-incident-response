@@ -8,7 +8,7 @@ export class CreateTaskDto {
   @MaxLength(500)
   description: string;
 
-  @IsOptional()
   @IsUUID()
+  @IsOptional()
   assigneeId?: string;
 }

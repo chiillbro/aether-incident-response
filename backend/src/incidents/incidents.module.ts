@@ -21,11 +21,13 @@ import { EventsModule } from '../events/events.module'; // <-- Import EventsModu
 // NotificationsModule is global
 // import { NotificationsModule } from '../notifications/notifications.module';
  import { TeamsModule } from '../teams/teams.module'; // <-- Import TeamsModule
+// import { NotificationsModule } from 'src/notifications/notifications.module';
 // import { TasksModule } from '../tasks/tasks.module'; // Only if service needs TasksService
 
 @Module({
   imports: [
     PrismaModule,
+    // NotificationsModule,
     EventsModule, // Make EventsGateway available
     TeamsModule, // Make TeamsService available
     // forwardRef(() => TasksModule), // If IncidentsService needs TasksService

@@ -8,13 +8,16 @@ import { EventsModule } from '../events/events.module'; // Import EventsModule
 // import { NotificationsModule } from '../notifications/notifications.module';
 import { IncidentsModule } from '../incidents/incidents.module'; // Import IncidentsModule for service dependency
  import { UsersModule } from '../users/users.module'; // Import UsersModule
+// import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   imports: [
-    PrismaModule,
+    // PrismaModule,
     EventsModule, // Make EventsGateway available
+    // forwardRef is needed if IncidentsService injects TasksService AND TasksService injects IncidentsService
     forwardRef(() => IncidentsModule), // Handle circular dependency: TaskService -> IncidentsService
     UsersModule, // Make UsersService available
+    // NotificationsModule, // Make NotificationsService available
   ],
   controllers: [TasksController],
   providers: [TasksService],

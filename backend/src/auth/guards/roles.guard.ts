@@ -14,7 +14,7 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // If no roles are required for this route, allow access
+     // If no roles are required, allow access (e.g., if only JwtAuthGuard is used)
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }

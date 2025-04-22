@@ -6,9 +6,10 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { AssignTaskDto } from './dto/assign-task.dto';
 import { EventsGateway } from '../events/events.gateway'; // Import Gateway
-import { NotificationsService } from '../notifications/notifications.service'; // Import NotificationsService
+// import { NotificationsService } from '../notifications/notifications.service'; // Import NotificationsService
 import { IncidentsService } from '../incidents/incidents.service'; // To check incident access
 import { UsersService } from 'src/users/users.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 
 // --- Define more specific return types for the helper ---
@@ -24,7 +25,8 @@ export class TasksService {
   constructor(
     private prisma: PrismaService,
     private eventsGateway: EventsGateway, // Inject Gateway
-    private notificationService: NotificationsService, // Inject Notifications
+    // private notificationService: NotificationsService, // Inject Notifications
+    private emitter2: EventEmitter2,
     @Inject(forwardRef(() => IncidentsService)) // Handle circular dependency if needed
     private incidentsService: IncidentsService,
     private usersService: UsersService, // Inject UsersService to check assignee existence
@@ -113,10 +115,12 @@ private async checkIncidentAndTaskPermission(
 
      // Send notification if assigned
      if (newTask.assigneeId) {
-         this.notificationService.sendNotification(
-             newTask.assigneeId,
-             `You have been assigned a new task for incident ${incidentId}: "${newTask.description}"`
-         );
+        //  this.notificationService.sendNotification(
+        //      newTask.assigneeId,
+        //      `You have been assigned a new task for incident ${incidentId}: "${newTask.description}"`
+        //  );
+
+        this.emitter2.emit('task.created', {task: newTask, incidentId, creator}); // Emit event to all listeners
      }
 
      return newTask;
@@ -177,7 +181,9 @@ private async checkIncidentAndTaskPermission(
      if (updateTaskDto.status && updateTaskDto.status !== originalTask.status) {
          const message = `Task "${updatedTask.description}" status changed to ${updatedTask.status} for incident ${incidentId}.`;
          if (updatedTask.assigneeId && updatedTask.assigneeId !== user.id) { // Notify assignee if not self-update
-             this.notificationService.sendNotification(updatedTask.assigneeId, message);
+            //  this.notificationService.sendNotification(updatedTask.assigneeId, message);
+
+            this.emitter2.emit('task.status.updated', {task: updatedTask, incidentId, oldStatus: originalTask.status, updatedByUser: user}); // Emit event to all listeners
          }
          // Could also notify reporter or team lead etc.
      }
@@ -212,20 +218,22 @@ private async checkIncidentAndTaskPermission(
      this.eventsGateway.emitTaskUpdated(incidentId, updatedTask);
 
      // Notify if assignment changed
-     if (assigneeId !== originalTask.assigneeId) {
-         if (originalTask.assigneeId) { // Notify old assignee of unassignment
-              this.notificationService.sendNotification(
-                  originalTask.assigneeId,
-                  `You have been unassigned from task "${updatedTask.description}" for incident ${incidentId}.`
-              );
-         }
-         if (assigneeId) { // Notify new assignee
-             this.notificationService.sendNotification(
-                 assigneeId,
-                 `You have been assigned task "${updatedTask.description}" for incident ${incidentId}.`
-             );
-         }
-     }
+    //  if (assigneeId !== originalTask.assigneeId) {
+    //      if (originalTask.assigneeId) { // Notify old assignee of unassignment
+    //           this.notificationService.sendNotification(
+    //               originalTask.assigneeId,
+    //               `You have been unassigned from task "${updatedTask.description}" for incident ${incidentId}.`
+    //           );
+    //      }
+    //      if (assigneeId) { // Notify new assignee
+    //          this.notificationService.sendNotification(
+    //              assigneeId,
+    //              `You have been assigned task "${updatedTask.description}" for incident ${incidentId}.`
+    //          );
+    //      }
+    //  }
+
+    this.emitter2.emit('task.assigned', {task: updatedTask, incidentId, assigner: user, oldAssigneeId: originalTask.assigneeId}); // Emit event to all listeners
 
      return updatedTask;
   }

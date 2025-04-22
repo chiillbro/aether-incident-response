@@ -3,14 +3,14 @@ import {TaskStatus} from '@prisma/client'
 
 export class UpdateTaskDto {
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   @MinLength(3)
   @MaxLength(500)
   description?: string;
 
-  @IsOptional()
   @IsEnum(TaskStatus)
+  @IsOptional()
   status?: TaskStatus;
 
   // Use a separate DTO/endpoint for assigning to keep things clean
