@@ -124,7 +124,7 @@ import {
     Settings,
     Flame,
 } from 'lucide-react';
-import { SidebarNav } from './SideBarNav';
+import { SidebarNav } from './SidebarNav';
 
 interface DashboardSidebarProps {
     isCollapsed: boolean;
