@@ -33,6 +33,7 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
               <p className="font-medium text-xs mb-1">{message.sender?.name || 'Unknown User'}</p>
            )}
           <p>{message.content}</p>
+          <p className='text-right'> {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}</p>
         </div>
          {/* Add to message bubble */}
         {/* <div className="flex items-center gap-1 mt-1">
@@ -43,12 +44,12 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
     {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
   </span>
 </div> */}
-        <p className={cn(
+        {/* <p className={cn(
            "text-xs text-gray-500 mt-1",
            isCurrentUser ? "text-right" : "text-left"
         )}>
           {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
-        </p>
+        </p> */}
       </div>
        {/* {isCurrentUser && <Avatar>...</Avatar>} */}
     </div>

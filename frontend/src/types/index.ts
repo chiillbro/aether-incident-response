@@ -49,8 +49,8 @@ export type UserSnippet = {
   id: string;
   name: string;
   email: string;
-  // role?: Role; // Optional, include if needed
-  // teamId?: string | null; // Optional
+  role?: Role; // Optional, include if needed
+  teamId?: string | null; // Optional
 };
 
 export interface Incident {

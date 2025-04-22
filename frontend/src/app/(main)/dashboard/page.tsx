@@ -1,37 +1,3 @@
-// // frontend/src/app/(main)/dashboard/page.tsx
-// import { getServerSession } from 'next-auth/next'; // Import from /next for server components
-// import { authOptions } from '@/lib/auth';
-// import { SignOutButton } from '@/components/auth/SignOutButton';
-
-// export default async function DashboardPage() {
-//   // Fetch session on the server side for server components
-//   const session = await getServerSession(authOptions);
-
-//   // Middleware should protect this page, but we can double-check
-//   if (!session) {
-//      // This usually won't be reached due to middleware, but good practice
-//      // Or you could redirect here, but middleware handles it cleaner
-//      return <p>Access Denied. Please log in.</p>;
-//   }
-
-//   return (
-//     <div className="p-6">
-//       <h1 className="text-2xl font-semibold mb-4">Aether Dashboard</h1>
-//       <p className="mb-2">Welcome, {session.user?.name ?? 'User'}!</p>
-//       <p className="mb-2">Your Email: {session.user?.email}</p>
-//       <p className="mb-4">Your Role: {session.user?.role}</p>
-//       {/* Add Dashboard content here */}
-
-//       <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs my-4">
-//         {JSON.stringify(session, null, 2)}
-//       </pre>
-
-//       <SignOutButton />
-//     </div>
-//   );
-// }
-
-// frontend/src/app/(main)/dashboard/page.tsx
 'use client'; // Mark as Client Component because we use hooks
 
 import { useState } from 'react';
@@ -40,35 +6,38 @@ import { IncidentList } from '@/components/incidents/IncidentList';
 import { Button } from '@/components/ui/button';
 import { CreateIncidentDialog } from '@/components/incidents/CreateIncidentDialog';
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
-import { AlertTriangle } from 'lucide-react';
-import { SignOutButton } from '@/components/auth/SignOutButton';
+import { AlertTriangle, PlusCircle, ShieldAlert } from 'lucide-react';
+// SignOutButton is now in the sidebar layout
 
-export default function DashboardPage() {
+export default function MainLayout() {
   const { data: incidents, isLoading, error, refetch } = useIncidents();
-
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const handleIncidentCreated = () => {
     setIsCreateDialogOpen(false);
-    refetch(); // Refetch the list after creation (alternative to cache invalidation)
+    // Invalidate query via hook now, refetch might not be needed
+    // refetch();
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Incident Dashboard</h1>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>Declare New Incident</Button>
+    <div className="space-y-6"> {/* Use space-y for vertical spacing */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Current Incidents</h1>
+        {/* TODO: Add RBAC check here if only specific roles can create */}
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <PlusCircle className='mr-2 h-4 w-4'/> Declare Incident
+        </Button>
       </div>
 
-      {isLoading && ( // Show loading skeletons
+      {isLoading && (
         <div className="space-y-4">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full rounded-lg" />
+          <Skeleton className="h-16 w-full rounded-lg" />
+          <Skeleton className="h-16 w-full rounded-lg" />
         </div>
       )}
 
-      {error && ( // Show error message
+      {error && (
         <div className="text-red-600 bg-red-100 border border-red-400 p-4 rounded-md flex items-center gap-2">
            <AlertTriangle className="h-5 w-5"/>
            <span>Error loading incidents: {error.message}</span>
@@ -81,10 +50,16 @@ export default function DashboardPage() {
       )}
 
       {!isLoading && !error && (!incidents || incidents.length === 0) && (
-         <p className="text-center text-gray-500 mt-8">No incidents found.</p>
+         <div className="text-center text-gray-500 mt-10 border rounded-lg p-8 bg-background">
+             <ShieldAlert className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+             <h3 className="text-xl font-semibold mb-2">No Active Incidents</h3>
+             <p className="text-sm text-muted-foreground mb-4">Looks like things are calm right now.</p>
+             <Button onClick={() => setIsCreateDialogOpen(true)}>Declare the First Incident</Button>
+         </div>
       )}
 
-      <SignOutButton />
+      {/* SignOutButton is moved to the layout */}
+      {/* <SignOutButton /> */}
 
       <CreateIncidentDialog
         isOpen={isCreateDialogOpen}
