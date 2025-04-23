@@ -73,7 +73,7 @@ export default function DashboardPage() {
       <Separator />
 
       {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {/* --- Stats Cards --- */}
         <StatCard
           title="Active Incidents"
@@ -97,7 +97,7 @@ export default function DashboardPage() {
 
         {/* --- Action Cards --- */}
         {/* Using grid layout within the action card area */}
-        <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="md:col-span-2 xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ActionCard
                 title="Declare Incident"
                 description="Start the response process for a new issue."
@@ -140,7 +140,7 @@ export default function DashboardPage() {
 
 
         {/* --- Priority Incident Feed --- */}
-        <Card className="lg:col-span-3 xl:col-span-2"> {/* Spans more columns on larger screens */}
+        <Card className="xl:col-span-2"> {/* Spans more columns on larger screens */}
             <CardHeader>
                 <CardTitle className='flex items-center gap-2'>
                     <Activity className='h-5 w-5'/> Priority Feed

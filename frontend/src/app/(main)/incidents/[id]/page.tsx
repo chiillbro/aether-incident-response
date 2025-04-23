@@ -126,6 +126,7 @@ export default function IncidentDetailPage() {
   const params = useParams();
   const { data: session } = useSession(); // Get session for role checks
   const currentUserRole = session?.user?.role as Role | undefined;
+  const currentUserId = session?.user?.id;
 
   const id = typeof params.id === 'string' ? params.id : null; // Get ID from route
   const { status: socketStatus, error: socketError } = useSocketStore();
@@ -243,6 +244,7 @@ export default function IncidentDetailPage() {
                     isLoading={isLoadingTasks}
                     // Pass current user role for potential RBAC within TaskList/TaskItem
                     currentUserRole={currentUserRole}
+                    currentUserId={currentUserId}
                 />
              </div>
         </div>

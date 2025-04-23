@@ -9,9 +9,10 @@ interface TaskListProps {
   tasks: Task[];
   isLoading: boolean;
   currentUserRole?: Role; // Pass role for RBAC checks in children
+  currentUserId?: string;
 }
 
-export function TaskList({ incidentId, tasks, isLoading, currentUserRole }: TaskListProps) {
+export function TaskList({ incidentId, tasks, isLoading, currentUserRole, currentUserId }: TaskListProps) {
 
   if (isLoading) {
     return (
@@ -35,6 +36,7 @@ export function TaskList({ incidentId, tasks, isLoading, currentUserRole }: Task
              task={task}
              incidentId={incidentId}
              currentUserRole={currentUserRole}
+             currentUserId={currentUserId}
           />
        ))}
 

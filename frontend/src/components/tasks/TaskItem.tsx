@@ -8,7 +8,7 @@ import { useUpdateTask } from '@/hooks/api/tasks/useUpdateTask';
 import { useDeleteTask } from '@/hooks/api/tasks/useDeleteTask';
 import { useAssignTask } from '@/hooks/api/tasks/useAssignTask';
 import { Trash2, UserPlus, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Assuming you have Avatar
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Assuming Tooltip
@@ -20,20 +20,11 @@ interface TaskItemProps {
   task: Task;
   incidentId: string;
   currentUserRole?: Role;
-}
-
-// Helper to get initials from name
-const getInitials = (name?: string | null) => {
-    return name
-      ?.split(' ')
-      .map(n => n[0])
-      .filter((_, i, arr) => i === 0 || i === arr.length - 1) // First and Last initial
-      .join('')
-      .toUpperCase() || '?';
+  currentUserId?: string;
 }
 
 
-export function TaskItem({ task, incidentId, currentUserRole }: TaskItemProps) {
+export function TaskItem({ task, incidentId, currentUserRole, currentUserId }: TaskItemProps) {
   const { mutate: updateTask, isPending: isUpdating } = useUpdateTask(incidentId, task.id);
   const { mutate: deleteTask, isPending: isDeleting } = useDeleteTask(incidentId);
   const { mutate: assignTask, isPending: isAssigning } = useAssignTask(incidentId, task.id);
@@ -55,11 +46,12 @@ export function TaskItem({ task, incidentId, currentUserRole }: TaskItemProps) {
      deleteTask({ taskId: task.id });
   };
 
-  const canModifyTask = currentUserRole === Role.ADMIN // Admins can do anything
+  const canModifyTask = currentUserRole === Role.ADMIN || task.assignee?.id === currentUserId // Admins can do anything
                           // || current user is assigned // Assignees can update status?
                           // || user is on the incident team? // Requires passing teamId or fetching incident here
                           ; // Define your RBAC rules here
 
+  const canAssignTask = currentUserRole === Role.ADMIN
   const canDeleteTask = currentUserRole === Role.ADMIN; // Example: Only Admins delete
 
   return (
@@ -118,7 +110,7 @@ export function TaskItem({ task, incidentId, currentUserRole }: TaskItemProps) {
                         <Select
                              value={task.assigneeId ?? 'unassigned'}
                              onValueChange={handleAssigneeChange}
-                             disabled={isAssigning || isLoadingUsers || !canModifyTask}
+                             disabled={isAssigning || isLoadingUsers || !canAssignTask}
                          >
                             <SelectTrigger
                                 className={cn(

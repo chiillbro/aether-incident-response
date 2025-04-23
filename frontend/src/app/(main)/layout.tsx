@@ -9,6 +9,8 @@ import { useSession } from 'next-auth/react';
 import { Role } from '@/types';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation'; // Import if redirecting from here
+import { MobileActionHub } from '@/components/layout/MobileActionHub';
+import { MobileHeader } from '@/components/layout/MobileHeader';
 
 // Optional: Header component if needed
 // import DashboardHeader from '@/components/layout/DashboardHeader';
@@ -62,16 +64,31 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
 
             {/* --- Main Content Area --- */}
             {/* flex-1 makes it take remaining width. flex-col allows header/main stacking. overflow-hidden prevents weird scrollbars */}
-            <div className="flex flex-1 flex-col overflow-hidden">
+            {/* <div className="flex flex-1 flex-col overflow-hidden"> */}
 
                 {/* Optional Header would go here */}
                 {/* <header className="h-16 border-b shrink-0">...</header> */}
 
                 {/* Page Content */}
                 {/* flex-1 makes it take remaining height. overflow-y-auto enables scrolling *within* the main area ONLY */}
-                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8 bg-muted/40 dark:bg-muted/10">
+                {/* <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8 bg-muted/40 dark:bg-muted/10">
                     {children}
                 </main>
+            </div> */}
+
+            {/* --- Main Content Area --- */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+                {/* --- Mobile Header (Shown only on Mobile) --- */}
+                <MobileHeader />
+
+                {/* Page Content */}
+                {/* Adjust padding: Add padding-top for header, padding-bottom for FAB */}
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:pt-6 md:pb-8 md:px-8 bg-muted/40 dark:bg-muted/10"> {/* Adjusted padding */}
+                    {children}
+                </main>
+
+                {/* --- Mobile Action Hub (Shown only on Mobile) --- */}
+                <MobileActionHub />
             </div>
         </div>
     );
