@@ -1,4 +1,4 @@
-// frontend/src/app/(admin)/admin/teams/page.tsx
+// frontend/src/app/(main)/admin/teams/page.tsx
 'use client';
 import { useState } from 'react';
 import { useGetTeams } from '@/hooks/api/admin/useGetTeams';

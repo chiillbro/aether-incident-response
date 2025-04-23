@@ -8,10 +8,13 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation'; // Use App Router's useRouter
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { Label } from '../ui/label';
 
 // Optional: Simple Card component for styling
 const AuthCard = ({ children }: { children: React.ReactNode }) => (
-  <div className="max-w-md w-full mx-auto bg-white shadow-md rounded-lg p-8 mt-10">
+  <div className="max-w-md w-full mx-auto bg-white shadow-md rounded-lg p-8">
     {children}
   </div>
 );
@@ -106,20 +109,20 @@ export function LoginForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         <div>
-          <label
+          <Label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium"
           >
             Email Address
-          </label>
-          <input
+          </Label>
+          <Input
             id="email"
             type="email"
             autoComplete="email"
             {...register('email')}
-            className={`mt-1 block w-full px-3 py-2 border ${
-              errors.email ? 'border-red-500' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+            className={`mt-1 w-full border ${
+              errors.email ? 'border-red-500' : ''
+            } focus:outline-none sm:text-sm`}
             disabled={isLoading}
           />
           {errors.email && (
@@ -128,20 +131,20 @@ export function LoginForm() {
         </div>
 
         <div>
-          <label
+          <Label
             htmlFor="password"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium"
           >
             Password
-          </label>
-          <input
+          </Label>
+          <Input
             id="password"
             type="password"
             autoComplete="current-password"
             {...register('password')}
-            className={`mt-1 block w-full px-3 py-2 border ${
-              errors.password ? 'border-red-500' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+            className={`mt-1 w-full border ${
+              errors.password ? 'border-red-500' : ''
+            } focus:outline-none sm:text-sm`}
             disabled={isLoading}
           />
           {errors.password && (
@@ -156,15 +159,14 @@ export function LoginForm() {
           </a>
         </div> */}
 
-        <div>
-          <button
+
+          <Button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="w-full flex justify-center text-sm font-medium focus:outline-none"
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
-          </button>
-        </div>
+          </Button>
       </form>
       <p className="mt-4 text-center text-sm text-gray-600">
         Don't have an account?{' '}

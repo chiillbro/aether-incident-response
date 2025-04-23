@@ -14,7 +14,7 @@ interface UpdateTaskPayload {
 
 const updateTask = async (payload: UpdateTaskPayload): Promise<Task> => {
   const { incidentId, taskId, ...data } = payload;
-  const response = await apiClient.patch(`/incidents/${incidentId}/tasks/${taskId}`, data);
+  const response = await apiClient.patch(`/tasks/${taskId}`, data);
   return response.data;
 };
 

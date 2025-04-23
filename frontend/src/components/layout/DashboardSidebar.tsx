@@ -143,7 +143,7 @@ export function DashboardSidebar({ isCollapsed, setIsCollapsed }: DashboardSideb
         <aside
             data-collapsed={isCollapsed} // Add data attribute for potential styling
             className={cn(
-                `group relative hidden h-screen flex-col border-r bg-background transition-all duration-300 ease-in-out md:flex`, // Added 'group' for potential hover effects
+                `group relative hidden h-screen flex-col border-r bg-background transition-all duration-300 ease-in-out md:flex overflow-hidden`, // Added 'group' for potential hover effects
                 isCollapsed ? 'w-16' : 'w-60'
             )}
         >

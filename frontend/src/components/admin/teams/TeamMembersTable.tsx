@@ -95,7 +95,7 @@ export function TeamMembersTable({ teamId, members }: TeamMembersTableProps) {
             <AlertDialogAction
                 onClick={confirmRemove}
                 disabled={isPending}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="bg-destructive hover:bg-destructive/90"
             >
                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Remove User
             </AlertDialogAction>

@@ -2,7 +2,7 @@
 // frontend/src/app/(main)/layout.tsx
 'use client'; // Needs client state for sidebar
 
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, useEffect } from 'react';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar'; // Import sidebar
 // We still need Role check here if AdminLayout wasn't used, or for shared logic
 import { useSession } from 'next-auth/react';
@@ -26,6 +26,31 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     // }, [status, router]);
     // if (status === 'loading') { /* return loading spinner */ }
     // if (status === 'unauthenticated') return null; // Or redirect
+
+    // --- Auth Protection for ALL routes under (main) ---
+    useEffect(() => {
+        if (status === 'loading') return; // Wait
+  
+        if (status === 'unauthenticated') {
+          console.log('MainAppLayout: Unauthenticated, redirecting to login.');
+          // Redirect to login, passing the intended destination
+          const currentPath = window.location.pathname + window.location.search;
+          router.replace(`/login?callbackUrl=${encodeURIComponent(currentPath)}`);
+        }
+      }, [status, router]);
+  
+      // Show loading state for the entire main layout while auth check happens
+      if (status === 'loading' || status === 'unauthenticated') {
+           return (
+               <div className="flex items-center justify-center h-screen w-screen bg-background">
+                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                   {status === 'loading' && <p className="ml-3 text-muted-foreground">Authenticating...</p>}
+               </div>
+           );
+      }
+      // ----------------------------------------------------
+  
+      // Render layout only if authenticated
 
     return (
         // --- Flex container for the full viewport height ---

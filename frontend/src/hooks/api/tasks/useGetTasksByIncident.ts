@@ -4,7 +4,7 @@ import apiClient from '@/lib/axios';
 import { Task } from '@/types';
 
 const fetchTasksByIncident = async (incidentId: string): Promise<Task[]> => {
-  const response = await apiClient.get(`/incidents/${incidentId}/tasks`);
+  const response = await apiClient.get(`/tasks/${incidentId}`);
   return response.data;
 };
 

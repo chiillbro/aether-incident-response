@@ -12,7 +12,6 @@ import {
     ListTodo,
     Users,
     Building,
-    Settings, // Example icon
 } from 'lucide-react';
 
 interface NavItem {
@@ -25,7 +24,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
     // Common Links
-    { href: '/', label: 'Incidents', icon: ShieldAlert, exact: true },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+    { href: '/incidents', label: 'Incidents', icon: ShieldAlert },
     { href: '/tasks', label: 'My Tasks', icon: ListTodo }, // Add later
 
     // Admin Links

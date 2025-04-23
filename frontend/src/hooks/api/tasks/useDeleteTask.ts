@@ -11,7 +11,7 @@ interface DeleteTaskPayload {
 
 const deleteTask = async ({ incidentId, taskId }: DeleteTaskPayload): Promise<Task> => {
   // Backend returns the deleted task, but we mostly care about the ID for cache update
-  const response = await apiClient.delete(`/incidents/${incidentId}/tasks/${taskId}`);
+  const response = await apiClient.delete(`/tasks/${taskId}`);
   return response.data; // Assuming backend returns deleted task
 };
 

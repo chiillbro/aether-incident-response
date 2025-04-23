@@ -12,7 +12,7 @@ interface CreateTaskPayload {
 
 const createTask = async (payload: CreateTaskPayload): Promise<Task> => {
   const { incidentId, ...data } = payload;
-  const response = await apiClient.post(`/incidents/${incidentId}/tasks`, data);
+  const response = await apiClient.post(`/tasks/${incidentId}`, data);
   return response.data;
 };
 

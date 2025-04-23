@@ -1,4 +1,4 @@
-// frontend/src/app/(admin)/admin/teams/[teamId]/page.tsx
+// frontend/src/app/(main)/admin/teams/[teamId]/page.tsx
 'use client';
 
 import { useParams } from 'next/navigation';

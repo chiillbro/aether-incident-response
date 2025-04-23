@@ -51,6 +51,7 @@ export type UserSnippet = {
   email: string;
   role?: Role; // Optional, include if needed
   teamId?: string | null; // Optional
+  createdAt: string; // ISO string
 };
 
 export interface Incident {
@@ -94,7 +95,7 @@ export interface Task {
   updatedAt: string; // ISO string
 
   // Optional relations (expand based on API response)
-  // incident?: Incident;
+  incident?: Incident;
   assignee?: UserSnippet | null; // Assignee can be null
 }
 

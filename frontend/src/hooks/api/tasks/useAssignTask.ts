@@ -12,7 +12,7 @@ interface AssignTaskPayload {
 
 const assignTask = async (payload: AssignTaskPayload): Promise<Task> => {
   const { incidentId, taskId, assigneeId } = payload;
-  const response = await apiClient.patch(`/incidents/${incidentId}/tasks/${taskId}/assign`, { assigneeId });
+  const response = await apiClient.patch(`/tasks/${taskId}/assign`, { assigneeId });
   return response.data; // Should include updated assignee info
 };
 

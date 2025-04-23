@@ -232,11 +232,18 @@ export const VirtualizedChatMessages: React.FC<VirtualizedChatMessagesProps> = (
     return () => clearTimeout(timeout);
   }, [messages, typingUsers.size]);
 
+  // --- INCREASE ESTIMATE SIZE ---
+  // Estimate needs to include average item height PLUS desired spacing below item
+  // Try 88 = ~64 (average bubble) + 8 (name) + 16 (spacing below)
+  // Adjust this value based on testing!
+  const estimateSize = useCallback(() => 88, []);
+  // -----------------------------
+
   // Initialize the virtualizer.
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => 64,
+    estimateSize: estimateSize,
     overscan: 5,
   });
 
@@ -254,12 +261,13 @@ export const VirtualizedChatMessages: React.FC<VirtualizedChatMessagesProps> = (
   }, []);
 
   return (
-    <div className="relative h-full">
+    <div className="relative h-full bg-muted/20 dark:bg-muted/5">
       {/* The scroll container for virtualized messages */}
       <div
         ref={scrollContainerRef}
-        className="h-full overflow-auto p-4 pr-6"
+        className="h-full overflow-y-auto overflow-x-hidden p-4 pr-6"
         onScroll={handleScroll}
+        style={{ contain: 'strict' }}
       >
         <div
           style={{
@@ -268,7 +276,7 @@ export const VirtualizedChatMessages: React.FC<VirtualizedChatMessagesProps> = (
             position: 'relative',
           }}
         >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
+          {virtualizer.getVirtualItems().map((virtualItem, index) => {
             const message = messages[virtualItem.index];
             return (
               <div
@@ -278,7 +286,7 @@ export const VirtualizedChatMessages: React.FC<VirtualizedChatMessagesProps> = (
                   top: 0,
                   left: 0,
                   width: '100%',
-                  height: `${virtualItem.size}px`,
+                  // height: `${virtualItem.size}px`, // Add extra height for current user
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
@@ -296,13 +304,22 @@ export const VirtualizedChatMessages: React.FC<VirtualizedChatMessagesProps> = (
       {typingUsers.size > 0 && (
             <div
               style={{
-                position: 'absolute',
-                top: virtualizer.getTotalSize(),
-                left: 0,
-                right: 0,
-                height: `${TYPING_INDICATOR_HEIGHT}px`,
-                paddingTop: '1rem',
+                // position: 'absolute',
+                // top: virtualizer.getTotalSize(),
+                // left: 0,
+                // right: 0,
+                // height: `${TYPING_INDICATOR_HEIGHT}px`,
+                // paddingTop: '1rem',
                 // paddingLeft: '1rem',
+
+                position: 'absolute',
+                top: `${virtualizer.getTotalSize()}px`, // Position after last message
+                left: 0,
+                width: '100%', // Ensure it spans width
+                height: `${TYPING_INDICATOR_HEIGHT}px`,
+                // Add horizontal padding to match scroll container's padding
+                paddingLeft: '1rem', // Match p-4
+                paddingRight: '1.5rem', // Match pr-6
               }}
               className="flex items-center gap-2 text-sm text-muted-foreground"
             >
