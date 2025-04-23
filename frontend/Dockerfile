@@ -48,7 +48,7 @@ EXPOSE 3000
 
 # Add Healthcheck (checking the root path is usually fine for Next.js)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -f http://localhost:3000/ || exit 1
+  CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Command to run the standalone server
 CMD ["node", "server.js"]
