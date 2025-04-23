@@ -81,7 +81,7 @@ export interface Message {
   createdAt: string; // ISO string
 
  // Include sender details if backend provides them
- sender: UserSnippet; // Assuming API includes this populated relation
+ sender: Omit<UserSnippet, 'createdAt'>; // Assuming API includes this populated relation
  // incident?: Incident; // Optional, depending on API response
 }
 
