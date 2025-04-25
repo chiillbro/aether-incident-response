@@ -254,7 +254,7 @@ export class IncidentsService {
      }
      });
   }
-
+  
    // --- FindOneById (Updated to use permission helper) ---
   async findOneById(id: string, user: User, bypassPermissionCheck = false): Promise<Incident> {
      // Perform permission check unless bypassed

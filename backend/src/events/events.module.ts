@@ -4,6 +4,7 @@ import { MessagesModule } from '../messages/messages.module'; // Import Messages
 import { AuthModule } from '../auth/auth.module'; // Import AuthModule for JwtService
 import { UsersModule } from '../users/users.module'; // Import UsersModule for UsersService
 import { ConfigModule } from '@nestjs/config'; // Import ConfigModule
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { ConfigModule } from '@nestjs/config'; // Import ConfigModule
       AuthModule,     // Make JwtService available
       UsersModule,    // Make UsersService available
       ConfigModule,   // Make ConfigService available
+      RedisModule,    // Make RedisService available
   ],
   providers: [EventsGateway],
   exports: [EventsGateway], // <-- Export the Gateway so other modules can inject

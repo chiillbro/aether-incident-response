@@ -17,6 +17,7 @@ import { JwtService } from '@nestjs/jwt'; // For validating token
 import { UsersService } from '../users/users.service'; // To fetch user details
 import { Incident, User as PrismaUser, Role, Task, IncidentStatus } from '@prisma/client';
 import { CreateMessageDto } from '../messages/dto/create-message.dto';
+import { RedisService } from 'src/redis/redis.service';
 
 type SafeUser = Omit<PrismaUser, 'passwordHash'>; // Exclude passwordHash
 // Extend Socket type to include our custom user data
@@ -36,9 +37,18 @@ interface SendMessagePayload {
 
 interface TypingInfo {
    timeoutId: NodeJS.Timeout;
-    incidentId: string;
-
+   incidentId: string;
 }
+
+// Define the structure of the notification payload we expect from Redis Pub/Sub
+interface RedisNotificationPayload {
+   title?: string;
+   message: string;
+   // Add other fields if needed
+}
+
+// Add a general broadcast room name
+const BROADCAST_ROOM = 'aether-broadcast';
 
 // interface TypingPayload { incidentId: string; isTyping: boolean; } // Refined Typing payload
 
@@ -63,6 +73,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       private readonly jwtService: JwtService, // Inject for token validation
       private readonly usersService: UsersService, // Inject to get user details
       private readonly configService: ConfigService, // Needed for JWT secret
+      private readonly redisService: RedisService, // Inject to get Redis client
    ) {}
 
    afterInit(server: Server) {
@@ -101,6 +112,14 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
          this.logger.log(`Client ${client.id} authenticated as ${safeUser.email}`);
 
          client.emit("authenticated", { user: safeUser });
+
+          // --- Subscribe to User-Specific Redis Channel ---
+          const userNotificationChannel = `user-notifications:${safeUser.id}`;
+          await this.redisService.subscribe(userNotificationChannel, (message) => {
+              // This handler runs when a message is published to the user's channel
+              this.handleRedisNotification(client, message);
+          });
+          // ---------------------------------------------
       } catch (error) {
          this.logger.error(`Client ${client.id} Authentication failed: ${error.message}`);
          client.emit('error', `Authentication failed: ${error.message}`);
@@ -108,11 +127,47 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       }
    }
 
-   handleDisconnect(client: AuthenticatedSocket) {
+   async handleDisconnect(client: AuthenticatedSocket) {
       // Clear typing status on disconnect
       this.clearTypingStatus(client);
+
+      // --- Unsubscribe from Redis Channel ---
+      if (client.user) {
+         const userNotificationChannel = `user-notifications:${client.user.id}`;
+         await this.redisService.unsubscribe(userNotificationChannel);
+     }
+     // ------------------------------------
       this.logger.log(`Client disconnected: ${client.id} (${client.user?.email || 'Unauthenticated'})`);
       // TODO: Handle cleanup if needed (e.g., leave all rooms)
+   }
+
+   // --- NEW: Handler for Redis Pub/Sub Messages ---
+   private handleRedisNotification(client: AuthenticatedSocket, message: string) {
+      this.logger.debug(`Received Redis notification for client ${client.id} (${client.user?.email})`);
+      try {
+          const notificationData: RedisNotificationPayload = JSON.parse(message);
+          // Emit a specific WebSocket event to this client
+          client.emit('receiveNotification', notificationData);
+          this.logger.log(`Emitted 'receiveNotification' to client ${client.id}`);
+      } catch (error) {
+          this.logger.error(`Failed to parse/emit Redis notification for client ${client.id}: ${error.message}`, message);
+      }
+  }
+  // ------------------------------------------
+
+
+  @SubscribeMessage('joinBroadcastRoom')
+    handleJoinBroadcast( @ConnectedSocket() client: AuthenticatedSocket ): void {
+         if (!client.user) return; // Only authenticated users
+         client.join(BROADCAST_ROOM);
+         this.logger.log(`Client ${client.user.email} joined broadcast room: ${BROADCAST_ROOM}`);
+    }
+
+   @SubscribeMessage('leaveBroadcastRoom')
+   handleLeaveBroadcast( @ConnectedSocket() client: AuthenticatedSocket ): void {
+        if (!client.user) return;
+        client.leave(BROADCAST_ROOM);
+        this.logger.log(`Client ${client.user.email} left broadcast room: ${BROADCAST_ROOM}`);
    }
 
    // --- Handle Incident Room Joining ---
