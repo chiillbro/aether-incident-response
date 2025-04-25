@@ -118,7 +118,10 @@ private async checkIncidentAndTaskPermission(
 
      const newTask = await this.prisma.task.create({
          data: taskData,
-         include: { assignee: { select: { id: true, name: true } } }, // Include assignee for event payload
+         include: { 
+            assignee: { select: { id: true, name: true } },
+            incident: {select: { title: true}}
+         }, // Include assignee for event payload
      });
 
      // Emit WebSocket event
@@ -131,6 +134,7 @@ private async checkIncidentAndTaskPermission(
         //      `You have been assigned a new task for incident ${incidentId}: "${newTask.description}"`
         //  );
 
+        console.log("event emitted", )
         this.emitter2.emit('task.created', {task: newTask, incidentId, creator}); // Emit event to all listeners
      }
 
@@ -182,7 +186,10 @@ private async checkIncidentAndTaskPermission(
              status: updateTaskDto.status,
              // Assignment is handled separately
          },
-         include: { assignee: { select: { id: true, name: true } } },
+         include: { 
+            assignee: { select: { id: true, name: true } },
+            incident: {select: { title: true}}
+         },
      });
 
      // Emit WebSocket event
@@ -222,7 +229,10 @@ private async checkIncidentAndTaskPermission(
          data: {
              assigneeId: assigneeId, // Prisma handles connect/disconnect based on null/value
          },
-         include: { assignee: { select: { id: true, name: true } } },
+         include: { 
+            assignee: { select: { id: true, name: true } },
+            incident: {select: { title: true}}
+         },
      });
 
      // Emit WebSocket event

@@ -228,17 +228,296 @@
 //   return { messages, sendMessage, setMessages, typingUsers, handleTyping }; // Return state and function
 // };
 
-// frontend/src/hooks/useIncidentChannel.ts
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { useSession } from 'next-auth/react';
-import { useSocketStore } from '@/store/socketStore';
-import { Message, Incident, Task, IncidentStatus, UserSnippet } from '@/types'; // Import needed types
-import { useQueryClient } from '@tanstack/react-query';
 
-// Define expected WebSocket event payloads
+
+
+
+
+
+
+
+
+
+
+// ************************************ Version 2 *****************************************
+// import { useEffect, useRef, useState, useCallback } from 'react';
+// import { io, Socket } from 'socket.io-client';
+// import { useSession } from 'next-auth/react';
+// import { useSocketStore } from '@/store/socketStore';
+// import { Message, Incident, Task, IncidentStatus, UserSnippet } from '@/types'; // Import needed types
+// import { useQueryClient } from '@tanstack/react-query';
+// import { toast } from 'sonner';
+
+// // Define expected WebSocket event payloads
+// interface NewMessagePayload extends Message {}
+// export interface ErrorPayload { error: string; }
+// interface MessageHistoryPayload { incidentId: string; messages: Message[] }
+// interface IncidentStatusUpdatePayload {
+//     incidentId: string;
+//     status: IncidentStatus;
+//     updatedBy: { id: string, name: string } | null;
+// }
+// interface TaskCreatedPayload extends Task {}
+// interface TaskUpdatedPayload extends Task {}
+// interface TaskDeletedPayload { taskId: string; }
+// interface UserTypingPayload { userId: string; userName: string; } // Add userName for display
+// interface UserStoppedTypingPayload { userId: string; }
+
+// export const useIncidentChannel = (incidentId: string | null | undefined) => {
+//   const { data: session } = useSession();
+//   const socketRef = useRef<Socket | null>(null);
+//   const { setStatus, setError } = useSocketStore();
+//   const queryClient = useQueryClient(); // Get query client instance
+
+//   // Local state for messages (often useful for immediate UI updates before cache sync)
+//   const [messages, setMessages] = useState<Message[]>([]);
+//   // Local state for who is currently typing (Map: userId -> userName)
+//   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+
+//   const isConnecting = useRef(false); // Prevent multiple connection attempts
+
+
+//   // --- Memoized Functions ---
+//   const sendMessage = useCallback((content: string) => {
+//     if (!socketRef.current || socketRef.current.disconnected || !incidentId) {
+//       console.error('WS: Socket not connected or incidentId missing for sendMessage');
+//       return;
+//     }
+//     if (content.trim()) {
+//        console.log(`WS: Emitting sendIncidentMessage for incident ${incidentId}`);
+//       socketRef.current.emit('sendIncidentMessage', { incidentId, content });
+//     }
+//   }, [incidentId]);
+
+//   const emitTyping = useCallback(() => {
+//       if (incidentId && socketRef.current?.connected) {
+//           // Basic throttling could be added here if needed
+//           console.log(`WS: Emitting typing for incident ${incidentId}`);
+//           socketRef.current.emit('typing', { incidentId });
+//       }
+//   }, [incidentId]);
+
+//   // --- WebSocket Connection Effect ---
+//   useEffect(() => {
+//     if (!incidentId || !session?.accessToken || isConnecting.current) {
+//       // Clean disconnect if dependencies change while connected
+//       if (socketRef.current?.connected && (!incidentId || !session?.accessToken)) {
+//           console.log('WS: Disconnecting socket due to missing incidentId or token change.');
+//           socketRef.current.disconnect();
+//       }
+//       return;
+//     }
+
+//     // Prevent race conditions on rapid re-renders
+//     isConnecting.current = true;
+
+//     console.log(`WS: Initializing connection for incident: ${incidentId}`);
+//     setStatus('connecting');
+
+//     // const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+//     // Base URL for the backend API (includes /server-api)
+//     // const socketBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+//     const socketBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/server-api', ''); // Get 
+
+//     if (!socketBaseUrl) {
+//         console.error("WS: NEXT_PUBLIC_API_BASE_URL is not defined!");
+//         setError("API URL configuration missing.");
+//         setStatus('error');
+//         isConnecting.current = false;
+//         return;
+//     }
+
+//     console.log("WS: Socket URL:", socketBaseUrl)
+//     const newSocket = io(socketBaseUrl, {
+//       path: '/server-api/socket.io', // Explicitly specify the standard Socket.IO path
+//       // Note: Socket.IO server (NestJS gateway) implicitly handles this path
+//       //       relative to its own root or global prefix.
+//       reconnectionAttempts: 5,
+//       timeout: 10000,
+//       auth: { token: session.accessToken },
+//       // IMPORTANT: Ensure transports include 'websocket'. Polling might be blocked by some infra.
+//       transports: ["websocket", "polling"],
+//     });
+
+//     socketRef.current = newSocket;
+
+//     // --- Event Listeners ---
+//     newSocket.on('authenticated', (data) => {
+//       console.log('WS: Authenticated:', data.user?.email);
+//       setStatus('connected');
+//       if (incidentId) {
+//          console.log(`WS: Emitting joinIncidentRoom for ${incidentId}`);
+//          newSocket.emit('joinIncidentRoom', { incidentId });
+
+//          // Attempt to join team room based on user's session data
+//          // This allows receiving broader notifications (e.g., new incidents for the team)
+//          const teamId = session.user?.teamId;
+//          if (teamId) {
+//              console.log(`WS: Emitting joinTeamRoom for team ${teamId}`);
+//              newSocket.emit('joinTeamRoom', { teamId });
+//          }
+//       }
+//        isConnecting.current = false; // Connection attempt finished
+//     });
+
+//     newSocket.on('messageHistory', (data: MessageHistoryPayload) => {
+//       if (data.incidentId === incidentId) {
+//         console.log(`WS: Received message history (${data.messages.length} messages)`);
+//         setMessages(data.messages); // Reset local state with history
+//       }
+//     });
+
+//     newSocket.on('newIncidentMessage', (newMessage: NewMessagePayload) => {
+//       if (newMessage.incidentId === incidentId) {
+//           console.log('WS: Received newIncidentMessage:', newMessage.id);
+//           // Update local state immediately
+//           setMessages((prev) => {
+//             if (prev.some(msg => msg.id === newMessage.id)) return prev; // Prevent duplicates
+//             return [...prev, newMessage];
+//           });
+//           // Optionally update React Query cache as well
+//           // queryClient.setQueryData(['messages', incidentId], ...); // Less critical if using local state primarily
+//       }
+//     });
+
+//     newSocket.on('incidentStatusUpdated', (data: IncidentStatusUpdatePayload) => {
+//       if (data.incidentId === incidentId) {
+//           console.log(`WS: Received incidentStatusUpdated to ${data.status}`);
+//           // Update React Query cache for the incident
+//           queryClient.setQueryData(['incident', incidentId], (oldData?: Incident) => {
+//             if (!oldData) return undefined;
+//             return { ...oldData, status: data.status, updatedAt: new Date().toISOString() }; // Update status and timestamp
+//           });
+//           // Optional: Show a toast notification about the status change
+//           // toast.info(`Incident status updated to ${data.status} by ${data.updatedBy?.name || 'system'}`);
+//       }
+//     });
+
+//     newSocket.on('taskCreated', (newTask: TaskCreatedPayload & { owner: string }) => {
+//       if (newTask.incidentId === incidentId && newTask.owner !== session?.user?.id) {
+//           console.log('WS: Received taskCreated:', newTask.id);
+//           // Update React Query cache for tasks
+//           queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
+//             console.log("oldData", oldData)
+//             if (oldData?.some(task => task.id === newTask.id)) return oldData; // Prevent duplicates
+//             return oldData ? [...oldData, newTask] : [newTask];
+//           });
+//       }
+//     });
+
+//     newSocket.on('taskUpdated', (updatedTask: TaskUpdatedPayload) => {
+//       if (updatedTask.incidentId === incidentId) {
+//           console.log('WS: Received taskUpdated:', updatedTask.id);
+//           // Update React Query cache for tasks
+//           queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
+//             return oldData?.map(task => task.id === updatedTask.id ? updatedTask : task) ?? [];
+//           });
+//       }
+//     });
+
+//     newSocket.on('taskDeleted', (data: TaskDeletedPayload) => {
+//         // Need incidentId to update the correct query cache
+//         // Backend should ideally include incidentId in this event payload
+//         // Assuming for now we only get this event when in the incident room:
+//        if (incidentId) {
+//             console.log('WS: Received taskDeleted:', data.taskId);
+//             queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
+//               return oldData?.filter(task => task.id !== data.taskId) ?? [];
+//             });
+//        } else {
+//            console.warn("WS: Received taskDeleted event but incidentId is unclear.");
+//        }
+//     });
+
+//     newSocket.on('userTyping', (data: UserTypingPayload) => {
+//         setTypingUsers(prev => new Map(prev).set(data.userId, data.userName));
+//     });
+
+//     newSocket.on('userStoppedTyping', (data: UserStoppedTypingPayload) => {
+//         setTypingUsers(prev => {
+//             const newMap = new Map(prev);
+//             newMap.delete(data.userId);
+//             return newMap;
+//         });
+//     });
+
+//     // Standard connection lifecycle listeners
+//     newSocket.on('connect', () => {
+//         console.log(`WS: Socket connected: ${newSocket.id}`);
+//         // Authentication happens via 'authenticated' event now
+//     });
+
+//     newSocket.on('disconnect', (reason) => {
+//       console.log(`WS: Socket disconnected: ${reason}`);
+//       setStatus('disconnected');
+//       setTypingUsers(new Map()); // Clear typing users on disconnect
+//       isConnecting.current = false; // Allow reconnect attempt
+//       if (reason === 'io server disconnect') {
+//         setError('Server disconnected. Auth issue?');
+//       }
+//     });
+
+//     newSocket.on('connect_error', (err) => {
+//       console.error('WS: Connection error:', err.message);
+//       setError(`Connection failed: ${err.message}`);
+//       setStatus('error');
+//       setTypingUsers(new Map());
+//       isConnecting.current = false; // Allow retry/reconnect attempt
+//     });
+
+//     newSocket.on('error', (payload: ErrorPayload | string) => {
+//       const msg = typeof payload === 'string' ? payload : payload?.error || 'Unknown WS error';
+//       console.error('WS: Error received:', msg);
+//       setError(msg);
+//       setStatus('error');
+//       if (msg.toLowerCase().includes('authentication')) { newSocket.disconnect(); }
+//        isConnecting.current = false; // Allow retry
+//     });
+
+//     // --- Cleanup Function ---
+//     return () => {
+//       console.log(`WS: Cleaning up socket for incident: ${incidentId}`);
+//       isConnecting.current = false; // Reset connection flag
+//       if (newSocket) {
+//         newSocket.off('authenticated');
+//         newSocket.off('messageHistory');
+//         newSocket.off('newIncidentMessage');
+//         newSocket.off('incidentStatusUpdated');
+//         newSocket.off('taskCreated');
+//         newSocket.off('taskUpdated');
+//         newSocket.off('taskDeleted');
+//         newSocket.off('userTyping');
+//         newSocket.off('userStoppedTyping');
+//         newSocket.off('connect');
+//         newSocket.off('disconnect');
+//         newSocket.off('connect_error');
+//         newSocket.off('error');
+//         if (incidentId) newSocket.emit('leaveIncidentRoom', { incidentId });
+//         const teamId = session?.user?.teamId;
+//         if (teamId) newSocket.emit('leaveTeamRoom', { teamId });
+//         newSocket.disconnect();
+//         socketRef.current = null;
+//         setStatus('disconnected');
+//       }
+//     };
+//     // Ensure session.user change triggers reconnect if needed (though token change is main driver)
+//   }, [incidentId, session?.accessToken, session?.user?.teamId, setStatus, setError, queryClient]);
+
+//   return { messages, sendMessage, emitTyping, typingUsers }; // Return state and functions
+// };
+
+
+// frontend/src/hooks/useIncidentChannel.ts
+import { useEffect, useState, useCallback } from 'react';
+import { useSocketStore } from '@/store/socketStore'; // Import the store
+import { Message, Incident, Task, IncidentStatus, UserSnippet } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react'; // Still need session for user ID comparison
+
+// Payload types remain the same
 interface NewMessagePayload extends Message {}
-interface ErrorPayload { error: string; }
+interface ErrorPayload { error: string; } // Assuming this is handled globally now
 interface MessageHistoryPayload { incidentId: string; messages: Message[] }
 interface IncidentStatusUpdatePayload {
     incidentId: string;
@@ -247,250 +526,164 @@ interface IncidentStatusUpdatePayload {
 }
 interface TaskCreatedPayload extends Task {}
 interface TaskUpdatedPayload extends Task {}
-interface TaskDeletedPayload { taskId: string; }
-interface UserTypingPayload { userId: string; userName: string; } // Add userName for display
+interface TaskDeletedPayload { taskId: string; incidentId?: string } // Add incidentId if backend includes it
+interface UserTypingPayload { userId: string; userName: string; }
 interface UserStoppedTypingPayload { userId: string; }
 
 export const useIncidentChannel = (incidentId: string | null | undefined) => {
+  // --- Get global socket instance and session ---
+  const socket = useSocketStore((state) => state.socket);
   const { data: session } = useSession();
-  const socketRef = useRef<Socket | null>(null);
-  const { setStatus, setError } = useSocketStore();
-  const queryClient = useQueryClient(); // Get query client instance
+  const queryClient = useQueryClient();
+  // --------------------------------------------
 
-  // Local state for messages (often useful for immediate UI updates before cache sync)
+  // Local state specific to this incident channel
   const [messages, setMessages] = useState<Message[]>([]);
-  // Local state for who is currently typing (Map: userId -> userName)
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
 
-  const isConnecting = useRef(false); // Prevent multiple connection attempts
-
-
-  // --- Memoized Functions ---
+  // --- Memoized Functions (now use global socket) ---
   const sendMessage = useCallback((content: string) => {
-    if (!socketRef.current || socketRef.current.disconnected || !incidentId) {
-      console.error('WS: Socket not connected or incidentId missing for sendMessage');
+    if (!socket?.connected || !incidentId) {
+      console.error('INCIDENT HOOK: Socket not connected or incidentId missing for sendMessage');
       return;
     }
     if (content.trim()) {
-       console.log(`WS: Emitting sendIncidentMessage for incident ${incidentId}`);
-      socketRef.current.emit('sendIncidentMessage', { incidentId, content });
+       console.log(`INCIDENT HOOK: Emitting sendIncidentMessage for incident ${incidentId}`);
+      socket.emit('sendIncidentMessage', { incidentId, content });
     }
-  }, [incidentId]);
+  }, [incidentId, socket]); // Depend on socket instance
 
   const emitTyping = useCallback(() => {
-      if (incidentId && socketRef.current?.connected) {
-          // Basic throttling could be added here if needed
-          console.log(`WS: Emitting typing for incident ${incidentId}`);
-          socketRef.current.emit('typing', { incidentId });
+      if (incidentId && socket?.connected) {
+          console.log(`INCIDENT HOOK: Emitting typing for incident ${incidentId}`);
+          socket.emit('typing', { incidentId });
       }
-  }, [incidentId]);
+  }, [incidentId, socket]);
+  // -------------------------------------------------
 
-  // --- WebSocket Connection Effect ---
+
+  // --- Effect for Joining/Leaving Room and Setting up Listeners ---
   useEffect(() => {
-    if (!incidentId || !session?.accessToken || isConnecting.current) {
-      // Clean disconnect if dependencies change while connected
-      if (socketRef.current?.connected && (!incidentId || !session?.accessToken)) {
-          console.log('WS: Disconnecting socket due to missing incidentId or token change.');
-          socketRef.current.disconnect();
+    // Ensure socket exists, is connected, and we have an incidentId
+    if (!socket?.connected || !incidentId) {
+      console.log('INCIDENT HOOK: Skipping setup/join (Socket not ready or no incidentId)');
+      // Clear local state if incidentId becomes null
+      if (!incidentId) {
+          setMessages([]);
+          setTypingUsers(new Map());
       }
       return;
     }
 
-    // Prevent race conditions on rapid re-renders
-    isConnecting.current = true;
+    console.log(`INCIDENT HOOK: Socket connected (${socket.id}). Setting up listeners and joining room for incident ${incidentId}`);
 
-    console.log(`WS: Initializing connection for incident: ${incidentId}`);
-    setStatus('connecting');
+    // --- Join Room ---
+    // Auth is handled globally, just join the specific incident room
+    socket.emit('joinIncidentRoom', { incidentId });
 
-    // const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-    // Base URL for the backend API (includes /server-api)
-    // const socketBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-    const socketBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/server-api', ''); // Get 
-
-    if (!socketBaseUrl) {
-        console.error("WS: NEXT_PUBLIC_API_BASE_URL is not defined!");
-        setError("API URL configuration missing.");
-        setStatus('error');
-        isConnecting.current = false;
-        return;
-    }
-
-    console.log("WS: Socket URL:", socketBaseUrl)
-    const newSocket = io(socketBaseUrl, {
-      path: '/server-api/socket.io', // Explicitly specify the standard Socket.IO path
-      // Note: Socket.IO server (NestJS gateway) implicitly handles this path
-      //       relative to its own root or global prefix.
-      reconnectionAttempts: 5,
-      timeout: 10000,
-      auth: { token: session.accessToken },
-      // IMPORTANT: Ensure transports include 'websocket'. Polling might be blocked by some infra.
-      transports: ["websocket", "polling"],
-    });
-
-    socketRef.current = newSocket;
-
-    // --- Event Listeners ---
-    newSocket.on('authenticated', (data) => {
-      console.log('WS: Authenticated:', data.user?.email);
-      setStatus('connected');
-      if (incidentId) {
-         console.log(`WS: Emitting joinIncidentRoom for ${incidentId}`);
-         newSocket.emit('joinIncidentRoom', { incidentId });
-
-         // Attempt to join team room based on user's session data
-         // This allows receiving broader notifications (e.g., new incidents for the team)
-         const teamId = session.user?.teamId;
-         if (teamId) {
-             console.log(`WS: Emitting joinTeamRoom for team ${teamId}`);
-             newSocket.emit('joinTeamRoom', { teamId });
-         }
-      }
-       isConnecting.current = false; // Connection attempt finished
-    });
-
-    newSocket.on('messageHistory', (data: MessageHistoryPayload) => {
+    // --- Setup Incident-Specific Listeners ---
+    const handleMessageHistory = (data: MessageHistoryPayload) => {
       if (data.incidentId === incidentId) {
-        console.log(`WS: Received message history (${data.messages.length} messages)`);
-        setMessages(data.messages); // Reset local state with history
+        console.log(`INCIDENT HOOK: Received message history for ${incidentId}`);
+        setMessages(data.messages);
       }
-    });
-
-    newSocket.on('newIncidentMessage', (newMessage: NewMessagePayload) => {
+    };
+    const handleNewMessage = (newMessage: NewMessagePayload) => {
       if (newMessage.incidentId === incidentId) {
-          console.log('WS: Received newIncidentMessage:', newMessage.id);
-          // Update local state immediately
-          setMessages((prev) => {
-            if (prev.some(msg => msg.id === newMessage.id)) return prev; // Prevent duplicates
-            return [...prev, newMessage];
-          });
-          // Optionally update React Query cache as well
-          // queryClient.setQueryData(['messages', incidentId], ...); // Less critical if using local state primarily
+        console.log(`INCIDENT HOOK: Received newIncidentMessage for ${incidentId}`);
+        setMessages((prev) => {
+          if (prev.some(msg => msg.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
       }
-    });
-
-    newSocket.on('incidentStatusUpdated', (data: IncidentStatusUpdatePayload) => {
-      if (data.incidentId === incidentId) {
-          console.log(`WS: Received incidentStatusUpdated to ${data.status}`);
-          // Update React Query cache for the incident
-          queryClient.setQueryData(['incident', incidentId], (oldData?: Incident) => {
-            if (!oldData) return undefined;
-            return { ...oldData, status: data.status, updatedAt: new Date().toISOString() }; // Update status and timestamp
-          });
-          // Optional: Show a toast notification about the status change
-          // toast.info(`Incident status updated to ${data.status} by ${data.updatedBy?.name || 'system'}`);
-      }
-    });
-
-    newSocket.on('taskCreated', (newTask: TaskCreatedPayload & { owner: string }) => {
-      if (newTask.incidentId === incidentId && newTask.owner !== session?.user?.id) {
-          console.log('WS: Received taskCreated:', newTask.id);
-          // Update React Query cache for tasks
-          queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
-            console.log("oldData", oldData)
-            if (oldData?.some(task => task.id === newTask.id)) return oldData; // Prevent duplicates
-            return oldData ? [...oldData, newTask] : [newTask];
-          });
-      }
-    });
-
-    newSocket.on('taskUpdated', (updatedTask: TaskUpdatedPayload) => {
-      if (updatedTask.incidentId === incidentId) {
-          console.log('WS: Received taskUpdated:', updatedTask.id);
-          // Update React Query cache for tasks
-          queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
-            return oldData?.map(task => task.id === updatedTask.id ? updatedTask : task) ?? [];
-          });
-      }
-    });
-
-    newSocket.on('taskDeleted', (data: TaskDeletedPayload) => {
-        // Need incidentId to update the correct query cache
-        // Backend should ideally include incidentId in this event payload
-        // Assuming for now we only get this event when in the incident room:
-       if (incidentId) {
-            console.log('WS: Received taskDeleted:', data.taskId);
+    };
+    const handleStatusUpdate = (data: IncidentStatusUpdatePayload) => {
+       if (data.incidentId === incidentId) {
+           console.log(`INCIDENT HOOK: Received incidentStatusUpdated for ${incidentId}`);
+           queryClient.setQueryData(['incident', incidentId], (oldData?: Incident) => {
+             if (!oldData) return undefined;
+             return { ...oldData, status: data.status, updatedAt: new Date().toISOString() };
+           });
+       }
+    };
+    const handleTaskCreated = (newTask: TaskCreatedPayload & { owner?: string }) => { // Adjust owner based on backend event
+        if (newTask.incidentId === incidentId && newTask.owner !== session?.user?.id) { // Check owner if available
+            console.log(`INCIDENT HOOK: Received taskCreated for ${incidentId}`);
+            queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
+              if (oldData?.some(task => task.id === newTask.id)) return oldData;
+              return oldData ? [...oldData, newTask] : [newTask];
+            });
+        }
+    };
+    const handleTaskUpdated = (updatedTask: TaskUpdatedPayload) => {
+       if (updatedTask.incidentId === incidentId) {
+           console.log(`INCIDENT HOOK: Received taskUpdated for ${incidentId}`);
+           queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
+             return oldData?.map(task => task.id === updatedTask.id ? updatedTask : task) ?? [];
+           });
+       }
+    };
+    const handleTaskDeleted = (data: TaskDeletedPayload) => {
+        // Ensure task deletion event includes incidentId OR rely on the fact
+        // this listener is only active when this incidentId is being viewed.
+       if (data.incidentId === incidentId || !data.incidentId) { // Handle both cases
+            console.log(`INCIDENT HOOK: Received taskDeleted (${data.taskId}) for ${incidentId}`);
             queryClient.setQueryData(['tasks', incidentId], (oldData?: Task[]) => {
               return oldData?.filter(task => task.id !== data.taskId) ?? [];
             });
-       } else {
-           console.warn("WS: Received taskDeleted event but incidentId is unclear.");
        }
-    });
+    };
+    const handleUserTyping = (data: UserTypingPayload) => {
+        // We need incidentId here too ideally, assuming it comes with typing event
+        // Let's assume for now typing events are broadcast *only* to the relevant incident room
+        // if (data.incidentId === incidentId) {
+             setTypingUsers(prev => new Map(prev).set(data.userId, data.userName));
+        // }
+    };
+    const handleUserStoppedTyping = (data: UserStoppedTypingPayload) => {
+        // if (data.incidentId === incidentId) {
+            setTypingUsers(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(data.userId);
+                return newMap;
+            });
+        // }
+    };
 
-    newSocket.on('userTyping', (data: UserTypingPayload) => {
-        setTypingUsers(prev => new Map(prev).set(data.userId, data.userName));
-    });
-
-    newSocket.on('userStoppedTyping', (data: UserStoppedTypingPayload) => {
-        setTypingUsers(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(data.userId);
-            return newMap;
-        });
-    });
-
-    // Standard connection lifecycle listeners
-    newSocket.on('connect', () => {
-        console.log(`WS: Socket connected: ${newSocket.id}`);
-        // Authentication happens via 'authenticated' event now
-    });
-
-    newSocket.on('disconnect', (reason) => {
-      console.log(`WS: Socket disconnected: ${reason}`);
-      setStatus('disconnected');
-      setTypingUsers(new Map()); // Clear typing users on disconnect
-      isConnecting.current = false; // Allow reconnect attempt
-      if (reason === 'io server disconnect') {
-        setError('Server disconnected. Auth issue?');
-      }
-    });
-
-    newSocket.on('connect_error', (err) => {
-      console.error('WS: Connection error:', err.message);
-      setError(`Connection failed: ${err.message}`);
-      setStatus('error');
-      setTypingUsers(new Map());
-      isConnecting.current = false; // Allow retry/reconnect attempt
-    });
-
-    newSocket.on('error', (payload: ErrorPayload | string) => {
-      const msg = typeof payload === 'string' ? payload : payload?.error || 'Unknown WS error';
-      console.error('WS: Error received:', msg);
-      setError(msg);
-      setStatus('error');
-      if (msg.toLowerCase().includes('authentication')) { newSocket.disconnect(); }
-       isConnecting.current = false; // Allow retry
-    });
+    // Attach listeners
+    socket.on('messageHistory', handleMessageHistory);
+    socket.on('newIncidentMessage', handleNewMessage);
+    socket.on('incidentStatusUpdated', handleStatusUpdate);
+    socket.on('taskCreated', handleTaskCreated);
+    socket.on('taskUpdated', handleTaskUpdated);
+    socket.on('taskDeleted', handleTaskDeleted);
+    socket.on('userTyping', handleUserTyping);
+    socket.on('userStoppedTyping', handleUserStoppedTyping);
 
     // --- Cleanup Function ---
     return () => {
-      console.log(`WS: Cleaning up socket for incident: ${incidentId}`);
-      isConnecting.current = false; // Reset connection flag
-      if (newSocket) {
-        newSocket.off('authenticated');
-        newSocket.off('messageHistory');
-        newSocket.off('newIncidentMessage');
-        newSocket.off('incidentStatusUpdated');
-        newSocket.off('taskCreated');
-        newSocket.off('taskUpdated');
-        newSocket.off('taskDeleted');
-        newSocket.off('userTyping');
-        newSocket.off('userStoppedTyping');
-        newSocket.off('connect');
-        newSocket.off('disconnect');
-        newSocket.off('connect_error');
-        newSocket.off('error');
-        if (incidentId) newSocket.emit('leaveIncidentRoom', { incidentId });
-        const teamId = session?.user?.teamId;
-        if (teamId) newSocket.emit('leaveTeamRoom', { teamId });
-        newSocket.disconnect();
-        socketRef.current = null;
-        setStatus('disconnected');
-      }
-    };
-    // Ensure session.user change triggers reconnect if needed (though token change is main driver)
-  }, [incidentId, session?.accessToken, session?.user?.teamId, setStatus, setError, queryClient]);
+      console.log(`INCIDENT HOOK: Cleaning up listeners and leaving room for incident: ${incidentId}`);
+      if (socket && incidentId) {
+        // Remove specific listeners
+        socket.off('messageHistory', handleMessageHistory);
+        socket.off('newIncidentMessage', handleNewMessage);
+        socket.off('incidentStatusUpdated', handleStatusUpdate);
+        socket.off('taskCreated', handleTaskCreated);
+        socket.off('taskUpdated', handleTaskUpdated);
+        socket.off('taskDeleted', handleTaskDeleted);
+        socket.off('userTyping', handleUserTyping);
+        socket.off('userStoppedTyping', handleUserStoppedTyping);
 
-  return { messages, sendMessage, emitTyping, typingUsers }; // Return state and functions
+        // Leave the specific incident room
+        socket.emit('leaveIncidentRoom', { incidentId });
+      }
+      // Reset local state for this hook
+      setMessages([]);
+      setTypingUsers(new Map());
+    };
+  // Dependencies: re-run if socket connection changes or incidentId changes
+  }, [socket, incidentId, queryClient, session?.user?.id]);
+
+  // Return only the state/functions needed by the Incident page
+  return { messages, sendMessage, emitTyping, typingUsers };
 };
